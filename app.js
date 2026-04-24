@@ -317,8 +317,11 @@ liuyaoResult.addEventListener("click", async (event) => {
   }
 
   if (target.id === "download-liuyao-image") {
-    const ok = exportLiuyaoAsImage(currentLiuYaoText || "");
-    if (msg) msg.textContent = ok ? "已导出图片" : "导出图片失败";
+    (async () => {
+      if (msg) msg.textContent = "正在生成图片…";
+      const ok = await exportLiuyaoAsImage();
+      if (msg) msg.textContent = ok ? "已导出排盘图" : "导出图片失败";
+    })();
   }
 });
 
@@ -1440,7 +1443,7 @@ function downloadFile(filename, mime, content) {
   URL.revokeObjectURL(url);
 }
 
-function exportLiuyaoAsImage(text) {
+function exportLiuyaoAsPlainTextImage(text) {
   try {
     const lines = String(text || "").split("\n");
     const padding = 24;
@@ -1469,6 +1472,70 @@ function exportLiuyaoAsImage(text) {
     return true;
   } catch (_) {
     return false;
+  }
+}
+
+function triggerPngDownload(dataUrl, baseName) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = `${baseName}_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/**
+ * 将当前六爻排盘结果卡片渲染为 PNG（整块界面截图，非纯文本）。
+ */
+async function exportLiuyaoAsImage() {
+  const el = liuyaoResult;
+  if (!el || el.classList.contains("hidden") || !el.innerHTML.trim()) {
+    return false;
+  }
+
+  if (typeof html2canvas !== "function") {
+    return exportLiuyaoAsPlainTextImage(currentLiuYaoText || "");
+  }
+
+  const prevScroll = { top: el.scrollTop, left: el.scrollLeft };
+  el.scrollTop = 0;
+  el.scrollLeft = 0;
+
+  const capW = Math.max(el.scrollWidth, el.offsetWidth, 1);
+  const capH = Math.max(el.scrollHeight, el.offsetHeight, 1);
+  const maxEdge = 8192;
+  const scale = Math.min(2, maxEdge / Math.max(capW, capH, 1));
+
+  try {
+    const canvas = await html2canvas(el, {
+      scale,
+      backgroundColor: getComputedStyle(el).backgroundColor || "#ffffff",
+      useCORS: true,
+      logging: false,
+      onclone: (_doc, clone) => {
+        clone.querySelectorAll("details").forEach((d) => {
+          d.setAttribute("open", "");
+        });
+        clone.querySelector(".copy-actions")?.remove();
+        clone.style.width = `${capW}px`;
+        clone.style.maxWidth = "none";
+        clone.style.height = "auto";
+        clone.style.minHeight = "0";
+        clone.style.overflow = "visible";
+        clone.style.boxShadow = "none";
+      }
+    });
+
+    el.scrollTop = prevScroll.top;
+    el.scrollLeft = prevScroll.left;
+
+    triggerPngDownload(canvas.toDataURL("image/png"), "六爻排盘");
+    return true;
+  } catch (err) {
+    console.error(err);
+    el.scrollTop = prevScroll.top;
+    el.scrollLeft = prevScroll.left;
+    return exportLiuyaoAsPlainTextImage(currentLiuYaoText || "");
   }
 }
 
