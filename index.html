@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>玄学排盘助手</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>玄学排盘助手</h1>
+      <p>八字排盘 + 六爻排盘（本地持久化）</p>
+    </header>
+
+    <main class="container">
+      <section class="tabs">
+        <button id="tab-liuyao" class="tab-btn active" type="button">六爻排盘（主）</button>
+        <button id="tab-bazi" class="tab-btn" type="button">八字排盘（次）</button>
+      </section>
+
+      <section id="panel-bazi" class="panel">
+        <h2>八字排盘</h2>
+        <form id="bazi-form" class="form-grid">
+          <label>
+            姓名
+            <input type="text" id="bz-name" placeholder="可选，例如：张三" />
+          </label>
+          <label>
+            性别
+            <select id="bz-gender">
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </label>
+          <label>
+            出生日期
+            <input type="date" id="bz-date" required />
+          </label>
+          <label>
+            出生时间
+            <input type="time" id="bz-time" required />
+          </label>
+          <label>
+            历法
+            <select id="bz-calendar">
+              <option value="公历">公历</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit">开始排盘</button>
+          </div>
+        </form>
+        <p>固定口径：北京时间输入、晚子时次日、按分钟起运、节气精算（lunar-javascript 1.7.7）。</p>
+
+        <article id="bazi-result" class="result-card hidden"></article>
+
+        <section id="bazi-flow-panel" class="result-card hidden">
+          <h3>大运 / 流年 / 流月 / 流日</h3>
+          <div class="flow-selectors">
+            <label>
+              大运
+              <select id="bz-dayun-select"></select>
+            </label>
+            <label>
+              流年
+              <select id="bz-liunian-select"></select>
+            </label>
+            <label>
+              流月
+              <select id="bz-liuyue-select"></select>
+            </label>
+            <label>
+              流日
+              <select id="bz-liuri-select"></select>
+            </label>
+          </div>
+          <div id="bazi-flow-result"></div>
+        </section>
+
+        <section class="record-section">
+          <div class="record-header">
+            <h3>已保存记录</h3>
+            <button id="clear-bazi-records" class="danger" type="button">清空八字记录</button>
+          </div>
+          <ul id="bazi-record-list" class="record-list"></ul>
+        </section>
+      </section>
+
+      <section id="panel-liuyao" class="panel active">
+        <h2>六爻排盘</h2>
+        <form id="liuyao-form" class="form-grid">
+          <label>
+            数字一（任意整数）
+            <input type="number" id="ly-num-1" required />
+          </label>
+          <label>
+            数字二（任意整数）
+            <input type="number" id="ly-num-2" required />
+          </label>
+          <label>
+            动爻计算
+            <select id="ly-moving-mode">
+              <option value="number-only">仅按两数字</option>
+              <option value="number-with-time">两数字 + 时辰</option>
+            </select>
+          </label>
+          <label id="ly-time-source-wrap" class="hidden">
+            时辰来源
+            <select id="ly-time-source">
+              <option value="now">自动取当前时间</option>
+              <option value="manual">手动选择时间</option>
+            </select>
+          </label>
+          <label id="ly-manual-time-wrap" class="hidden">
+            手动时间
+            <input type="datetime-local" id="ly-manual-time" />
+          </label>
+          <div class="form-actions">
+            <button type="submit">起卦</button>
+          </div>
+        </form>
+
+        <article id="liuyao-result" class="result-card hidden"></article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <small>说明：八字记录保存在当前浏览器（localStorage）中。</small>
+    </footer>
+
+    <script src="https://unpkg.com/lunar-javascript@1.7.7/lunar.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
