@@ -14,8 +14,8 @@
 
     <main class="container">
       <section class="tabs">
-        <button id="tab-liuyao" class="tab-btn active" type="button">六爻排盘（主）</button>
-        <button id="tab-bazi" class="tab-btn" type="button">八字排盘（次）</button>
+        <button id="tab-liuyao" class="tab-btn active" type="button">六爻排盘</button>
+        <button id="tab-bazi" class="tab-btn" type="button">八字排盘</button>
       </section>
 
       <section id="panel-bazi" class="panel">
@@ -98,6 +98,24 @@
             <input type="number" id="ly-num-2" required />
           </label>
           <label>
+            问事类型
+            <select id="ly-question-type">
+              <option value="general">综合</option>
+              <option value="career">事业/工作</option>
+              <option value="wealth">财运/投资</option>
+              <option value="love">感情/婚恋</option>
+              <option value="health">健康</option>
+              <option value="travel">出行/迁移</option>
+            </select>
+          </label>
+          <label>
+            显示模式
+            <select id="ly-view-mode">
+              <option value="simple">简版（先看结论）</option>
+              <option value="pro">专业版（全字段）</option>
+            </select>
+          </label>
+          <label>
             动爻计算
             <select id="ly-moving-mode">
               <option value="number-only">仅按两数字</option>
@@ -128,7 +146,7 @@
       <small>说明：八字记录保存在当前浏览器（localStorage）中。</small>
     </footer>
 
-    <script src="https://unpkg.com/lunar-javascript@1.7.7/lunar.js"></script>
+    <script src="./vendor/lunar.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

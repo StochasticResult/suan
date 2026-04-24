@@ -1,45 +1,37 @@
-# 玄学排盘助手（静态网页）
+# 玄学排盘助手
 
-主功能：六爻排盘（手机优先），含周易卦名、卦辞、爻辞、专业盘字段和一键复制。  
-辅助功能：八字排盘（本地浏览器存储）。
+一个面向中文用户的网页排盘工具，主打六爻，兼顾八字。
 
-## 本地使用
+## 功能概览
 
-直接双击 `index.html` 打开即可。
+- 六爻排盘（主功能）
+  - 两数字起卦，支持“仅数字”与“数字+时辰”动爻模式
+  - 本卦、变卦、互卦、综卦、错卦
+  - 周易卦名、卦辞、动爻爻辞
+  - 六神、纳甲、六亲、世应、伏神、月建、日辰、旬空（专业盘信息）
+  - 一键复制完整盘面文本
+- 八字排盘（辅助功能）
+  - 四柱、十神、藏干、纳音、旬空
+  - 大运 / 流年 / 流月 / 流日联动查看
+  - 本地记录存储（localStorage）
 
-## 免费托管（推荐：GitHub Pages）
+## 在线访问
 
-这个项目是纯静态网页，无需服务器、无数据库，可免费托管在 GitHub Pages。
+- 已发布到 GitHub Pages https://stochasticresult.github.io/suan/
 
-### 方式一：网页上传（最简单）
+## 本地运行
 
-1. 在 GitHub 新建一个公开仓库（例如 `suan`）。
-2. 进入仓库页面，点击 `Add file` -> `Upload files`。
-3. 把以下文件上传到仓库根目录：
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-4. 打开仓库 `Settings` -> `Pages`：
-   - Source 选择 `Deploy from a branch`
-   - Branch 选择 `main`，目录选 `/ (root)`
-5. 保存后等待 1-3 分钟，访问页面地址：
-   - `https://你的用户名.github.io/仓库名/`
+这是纯静态网页项目，无需后端：
 
-### 方式二：Git 命令上传（你本机有 git 时）
+1. 下载或克隆项目
+2. 直接打开 `index.html`
 
-```bash
-git init
-git add .
-git commit -m "init site"
-git branch -M main
-git remote add origin https://github.com/<你的用户名>/<仓库名>.git
-git push -u origin main
-```
+## 技术说明
 
-然后按“方式一”的第 4 步开启 Pages。
+- 前端：原生 `HTML` / `CSS` / `JavaScript`
+- 历法：`lunar-javascript`
+- 数据存储：浏览器 `localStorage`（仅八字记录）
 
-## 说明
+## 免责声明
 
-- 当前没有后端，不占服务器存储空间。
-- 八字历史记录只保存在用户自己的浏览器 `localStorage`。
-- 六爻主要为前端即时计算，部署后可直接手机访问。
+本项目用于传统文化学习与技术实现演示，不构成现实决策建议。

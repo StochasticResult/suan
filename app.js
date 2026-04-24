@@ -12,7 +12,7 @@ const TRIGRAM_META = [
   { name: "坤", symbol: "地", element: "土", binary: "000" }
 ];
 const SHICHEN_NAMES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-const ICHING_DATA_URL = "https://raw.githubusercontent.com/john-walks-slow/open-iching/main/iching/iching.json";
+const ICHING_DATA_URL = "./data/iching.json";
 const HEXAGRAM_NAME_MATRIX = [
   ["乾", "夬", "大有", "大壮", "小畜", "需", "大畜", "泰"],
   ["履", "兑", "睽", "归妹", "中孚", "节", "损", "萃"],
@@ -126,6 +126,14 @@ const STORAGE_KEY = "bazi_records_v3";
 const FIXED_DAY_SECT = 2;
 const FIXED_YUN_SECT = 2;
 const SHENSHA_PROFILE_NAME = "子平通行口径（渊海子平/三命通会系）";
+const QUESTION_PROFILE = {
+  general: { label: "综合", yongShen: ["官鬼", "妻财", "父母", "子孙", "兄弟"] },
+  career: { label: "事业/工作", yongShen: ["官鬼", "父母"] },
+  wealth: { label: "财运/投资", yongShen: ["妻财", "子孙"] },
+  love: { label: "感情/婚恋", yongShen: ["妻财", "官鬼", "子孙"] },
+  health: { label: "健康", yongShen: ["官鬼", "子孙", "父母"] },
+  travel: { label: "出行/迁移", yongShen: ["父母", "子孙", "兄弟"] }
+};
 
 const tabBazi = document.getElementById("tab-bazi");
 const tabLiuyao = document.getElementById("tab-liuyao");
@@ -146,6 +154,8 @@ const clearBaziBtn = document.getElementById("clear-bazi-records");
 const liuyaoForm = document.getElementById("liuyao-form");
 const liuyaoResult = document.getElementById("liuyao-result");
 const lyMovingMode = document.getElementById("ly-moving-mode");
+const lyQuestionType = document.getElementById("ly-question-type");
+const lyViewMode = document.getElementById("ly-view-mode");
 const lyTimeSourceWrap = document.getElementById("ly-time-source-wrap");
 const lyTimeSource = document.getElementById("ly-time-source");
 const lyManualTimeWrap = document.getElementById("ly-manual-time-wrap");
@@ -154,6 +164,7 @@ const lyManualTime = document.getElementById("ly-manual-time");
 let currentChartData = null;
 let currentRecord = null;
 let currentLiuYaoText = "";
+let currentLiuYaoJson = null;
 let ichingDataMap = new Map();
 
 setupTabs();
@@ -247,6 +258,8 @@ liuyaoForm.addEventListener("submit", (event) => {
     return;
   }
   const movingMode = lyMovingMode.value;
+  const questionType = lyQuestionType.value;
+  const viewMode = lyViewMode.value;
   let timeInfo = null;
   let liuyaoDate = new Date();
   if (movingMode === "number-with-time") {
@@ -270,17 +283,43 @@ liuyaoForm.addEventListener("submit", (event) => {
   }
 
   const chart = calcLiuyaoChart(n1, n2, { movingMode, timeInfo });
-  renderLiuyaoResult(chart, n1, n2, liuyaoDate);
+  renderLiuyaoResult(chart, n1, n2, liuyaoDate, { questionType, viewMode });
 });
 
 liuyaoResult.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
-  if (target.id !== "copy-liuyao-btn") return;
-  if (!currentLiuYaoText) return;
-  const ok = await copyText(currentLiuYaoText);
   const msg = document.getElementById("copy-liuyao-msg");
-  if (msg) msg.textContent = ok ? "已复制" : "复制失败";
+
+  if (target.id === "copy-liuyao-btn") {
+    if (!currentLiuYaoText) return;
+    const ok = await copyText(currentLiuYaoText);
+    if (msg) msg.textContent = ok ? "已复制文本" : "复制失败";
+    return;
+  }
+
+  if (target.id === "download-liuyao-txt") {
+    if (!currentLiuYaoText) return;
+    downloadFile(`六爻排盘_${Date.now()}.txt`, "text/plain;charset=utf-8", currentLiuYaoText);
+    if (msg) msg.textContent = "已导出 TXT";
+    return;
+  }
+
+  if (target.id === "download-liuyao-json") {
+    if (!currentLiuYaoJson) return;
+    downloadFile(
+      `六爻排盘_${Date.now()}.json`,
+      "application/json;charset=utf-8",
+      JSON.stringify(currentLiuYaoJson, null, 2)
+    );
+    if (msg) msg.textContent = "已导出 JSON";
+    return;
+  }
+
+  if (target.id === "download-liuyao-image") {
+    const ok = exportLiuyaoAsImage(currentLiuYaoText || "");
+    if (msg) msg.textContent = ok ? "已导出图片" : "导出图片失败";
+  }
 });
 
 function ensureLunarReady() {
@@ -753,6 +792,7 @@ function safeCallList(obj, methodName, arg) {
 function runAccuracySelfCheck() {
   if (!ensureLunarReady()) return;
   try {
+    let failed = false;
     const cases = [
       {
         // 来自 lunar-javascript 官方测试 Yun.test.js
@@ -775,9 +815,19 @@ function runAccuracySelfCheck() {
       const yun = eightChar.getYun(c.genderNum, c.yunSect);
       const got = safeCallObjYmd(yun, "getStartSolar").slice(0, 10);
       if (got !== c.expectedStartSolar) {
-        alert("历法引擎自检未通过，请勿用于精算。建议检查网络或更换浏览器后重试。");
-        return;
+        failed = true;
       }
+    }
+
+    // 六爻核心回归：确保基础起卦不漂移
+    const liuyaoCase = calcLiuyaoChart(12, 34, { movingMode: "number-only", timeInfo: null });
+    if (!(liuyaoCase.upper === "巽" && liuyaoCase.lower === "离" && liuyaoCase.movingLine === 4)) {
+      failed = true;
+    }
+
+    if (failed) {
+      alert("排盘核心自检未通过，请勿用于精算。建议刷新或检查发布文件完整性。");
+      return;
     }
   } catch (e) {
     console.error(e);
@@ -1068,7 +1118,10 @@ function trigramIndexFromBinary(bin) {
   return lookup[key];
 }
 
-function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
+function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
+  const questionType = options.questionType || "general";
+  const viewMode = options.viewMode || "simple";
+  const questionProfile = QUESTION_PROFILE[questionType] || QUESTION_PROFILE.general;
   const upperMeta = trigramMetaByName(chart.upper);
   const lowerMeta = trigramMetaByName(chart.lower);
   const changedUpperMeta = trigramMetaByName(chart.changedUpper);
@@ -1086,6 +1139,15 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
   const cuoInfo = getHexagramInfo(chart.cuoUpper, chart.cuoLower);
   const benMovingLine = benInfo.lines[chart.movingLine - 1] || null;
   const pro = buildProfessionalLiuYao(chart, liuyaoDate);
+  const yongShenSuggestion = getYongShenSuggestion(questionType, pro);
+  const interpretation = buildLiuyaoInterpretation({
+    chart,
+    questionType,
+    benInfo,
+    bianInfo,
+    pro,
+    yongShenSuggestion
+  });
 
   const movingDesc =
     chart.movingMode === "number-with-time" && chart.timeInfo
@@ -1096,10 +1158,13 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
       ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时`
       : "-";
 
+  const proOpen = viewMode === "pro" ? "open" : "";
+
   liuyaoResult.classList.remove("hidden");
   liuyaoResult.innerHTML = `
     <h4>起卦结果</h4>
     <p>输入数字：${n1}，${n2}</p>
+    <p>问事类型：${questionProfile.label}</p>
     <p>动爻方式：${movingDesc}（动爻计算数：${chart.movingSeed}）</p>
     <p>时辰信息：${timeDesc}</p>
     <div class="pill-row">
@@ -1111,6 +1176,11 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
       <span class="pill">互卦：${chart.huUpper}上${chart.huLower}下</span>
       <span class="pill">综卦：${chart.zongUpper}上${chart.zongLower}下</span>
       <span class="pill">错卦：${chart.cuoUpper}上${chart.cuoLower}下</span>
+    </div>
+    <div class="focus-row">
+      <p><strong>用神建议：</strong>${yongShenSuggestion.text}</p>
+      <p><strong>综合提示：</strong>${interpretation.summary}</p>
+      <p><strong>断语要点：</strong>${interpretation.bullets.join("；")}</p>
     </div>
     <table class="line-table">
       <thead>
@@ -1144,28 +1214,31 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
         <tr><td>本卦第${chart.movingLine}爻</td><td>${benMovingLine ? `${benMovingLine.name}：${benMovingLine.scripture}` : "-"}</td></tr>
       </tbody>
     </table>
-    <table class="line-table">
-      <thead>
-        <tr><th>爻位</th><th>六神</th><th>伏神</th><th>本卦(六亲/干支/五行/旺衰)</th><th>世应</th><th>变卦(六亲/干支/五行)</th></tr>
-      </thead>
-      <tbody>
-        ${pro.lines
-          .slice()
-          .reverse()
-          .map((line) => {
-            return `<tr>
-              <td>${line.position}</td>
-              <td>${line.spirit}</td>
-              <td>${line.hidden}</td>
-              <td>${line.main}</td>
-              <td>${line.shiYing}</td>
-              <td>${line.changed}</td>
-            </tr>`;
-          })
-          .join("")}
-      </tbody>
-    </table>
-    <p>月建：${pro.monthBranch}｜日辰：${pro.dayGanzhi}｜旬空：${pro.dayXunKong}</p>
+    <details ${proOpen}>
+      <summary>专业盘（六神 / 纳甲 / 六亲 / 世应 / 伏神）</summary>
+      <table class="line-table">
+        <thead>
+          <tr><th>爻位</th><th>六神</th><th>伏神</th><th>本卦(六亲/干支/五行/旺衰)</th><th>世应</th><th>变卦(六亲/干支/五行)</th></tr>
+        </thead>
+        <tbody>
+          ${pro.lines
+            .slice()
+            .reverse()
+            .map((line) => {
+              return `<tr>
+                <td>${line.position}</td>
+                <td>${line.spirit}</td>
+                <td>${line.hidden}</td>
+                <td>${line.main}</td>
+                <td>${line.shiYing}</td>
+                <td>${line.changed}</td>
+              </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+      <p>月建：${pro.monthBranch}｜日辰：${pro.dayGanzhi}｜旬空：${pro.dayXunKong}</p>
+    </details>
     <table class="line-table">
       <thead>
         <tr><th>爻位（自下而上）</th><th>本卦</th><th>变卦</th><th>是否动爻</th></tr>
@@ -1184,6 +1257,9 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
     </table>
     <div class="copy-actions">
       <button type="button" id="copy-liuyao-btn">复制全部信息</button>
+      <button type="button" id="download-liuyao-txt">导出 TXT</button>
+      <button type="button" id="download-liuyao-json">导出 JSON</button>
+      <button type="button" id="download-liuyao-image">导出图片</button>
       <span id="copy-liuyao-msg"></span>
     </div>
   `;
@@ -1209,6 +1285,28 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate) {
     cuoInfo,
     pro
   });
+
+  currentLiuYaoJson = {
+    input: { n1, n2, questionType, questionLabel: questionProfile.label, movingMode: chart.movingMode, movingSeed: chart.movingSeed },
+    time: chart.timeInfo || null,
+    hexagrams: {
+      ben: benInfo,
+      bian: bianInfo,
+      hu: huInfo,
+      zong: zongInfo,
+      cuo: cuoInfo
+    },
+    movingLine: chart.movingLine,
+    interpretation,
+    yongShenSuggestion,
+    professional: pro,
+    lines: chart.baseLines.map((line, index) => ({
+      position: index + 1,
+      base: line ? "阳" : "阴",
+      changed: chart.changedLines[index] ? "阳" : "阴",
+      moving: index + 1 === chart.movingLine
+    }))
+  };
 }
 
 function trigramMetaByName(name) {
@@ -1294,6 +1392,84 @@ function buildLiuyaoText(payload) {
     "六爻明细：",
     lines
   ].join("\n");
+}
+
+function getYongShenSuggestion(questionType, pro) {
+  const profile = QUESTION_PROFILE[questionType] || QUESTION_PROFILE.general;
+  const candidates = [];
+  for (const target of profile.yongShen) {
+    for (const line of pro.lines || []) {
+      if (!line.main.includes(target)) continue;
+      const score = line.main.includes("旺") ? 4 : line.main.includes("相") ? 3 : line.main.includes("休") ? 2 : 1;
+      candidates.push({ target, line, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  if (!candidates.length) {
+    return { text: `优先参考：${profile.yongShen.join("、")}（当前盘中未检索到明显高旺位）`, candidates: [] };
+  }
+  const top = candidates[0];
+  return {
+    text: `优先用神：${top.target}，落在第${top.line.position}爻（${top.line.main}）`,
+    candidates: candidates.slice(0, 3).map((x) => ({ yongShen: x.target, line: x.line.position, detail: x.line.main }))
+  };
+}
+
+function buildLiuyaoInterpretation({ chart, questionType, benInfo, bianInfo, pro, yongShenSuggestion }) {
+  const profile = QUESTION_PROFILE[questionType] || QUESTION_PROFILE.general;
+  const movingLevel = chart.movingLine <= 2 ? "事情处于起步阶段" : chart.movingLine <= 4 ? "事情正在发展变化中" : "事情接近结果阶段";
+  const monthDay = `月建${pro.monthBranch}，日辰${pro.dayGanzhi}`;
+  const summary = `${profile.label}类事项：本卦${benInfo.shortName}变${bianInfo.shortName}，${movingLevel}。${monthDay}。`;
+  const bullets = [
+    `先看本卦卦辞定大方向，再看第${chart.movingLine}爻爻辞定关键触发点`,
+    `变卦${bianInfo.shortName}代表后续走向，若与本卦五行生扶，多主可成`,
+    yongShenSuggestion.text
+  ];
+  return { summary, bullets };
+}
+
+function downloadFile(filename, mime, content) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportLiuyaoAsImage(text) {
+  try {
+    const lines = String(text || "").split("\n");
+    const padding = 24;
+    const lineHeight = 24;
+    const width = 1200;
+    const height = Math.max(240, padding * 2 + lines.length * lineHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#1f1f1f";
+    ctx.font = "18px Microsoft YaHei, Segoe UI, sans-serif";
+    lines.forEach((line, idx) => {
+      ctx.fillText(line, padding, padding + (idx + 1) * lineHeight);
+    });
+    const dataUrl = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `六爻排盘_${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function getHexagramInfo(upperName, lowerName) {
