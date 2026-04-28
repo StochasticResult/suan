@@ -415,6 +415,11 @@ function flipCoinFace(line, index) {
   const faces = getCoinFacesForLine(line);
   faces[index] = faces[index] === "字" ? "背" : "字";
   setCoinFacesForLine(line, faces);
+  const coin = document.querySelector(`[data-coin-line="${line}"][data-coin-index="${index}"]`);
+  if (!coin) return;
+  coin.classList.remove("just-flipped");
+  void coin.offsetWidth;
+  coin.classList.add("just-flipped");
 }
 
 function setCoinFacesForLine(line, faces) {
@@ -441,7 +446,8 @@ function renderCoinFaces(container, faces, line) {
   container.innerHTML = faces
     .map((face, index) => {
       const cls = face === "字" ? " is-yang" : face === "背" ? " is-yin" : "";
-      return `<button class="coin${cls}" type="button" data-coin-line="${line}" data-coin-index="${index}" data-coin-face="${escapeHTML(face)}">${escapeHTML(face)}</button>`;
+      const label = face === "字" ? "字面，阳，3点" : "字背，阴，2点";
+      return `<button class="coin${cls}" type="button" data-coin-line="${line}" data-coin-index="${index}" data-coin-face="${escapeHTML(face)}" aria-label="第${line}爻第${index + 1}枚硬币：${label}"><span class="coin-mark">${escapeHTML(face)}</span><span class="coin-value">${face === "字" ? "3" : "2"}</span></button>`;
     })
     .join("");
 }
