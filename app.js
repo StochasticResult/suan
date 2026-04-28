@@ -14,14 +14,14 @@ const TRIGRAM_META = [
 const SHICHEN_NAMES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
 const ICHING_DATA_URL = "./data/iching.json";
 const HEXAGRAM_NAME_MATRIX = [
-  ["乾", "夬", "大有", "大壮", "小畜", "需", "大畜", "泰"],
-  ["履", "兑", "睽", "归妹", "中孚", "节", "损", "萃"],
-  ["同人", "革", "离", "丰", "家人", "既济", "贲", "明夷"],
-  ["无妄", "随", "噬嗑", "震", "益", "屯", "颐", "复"],
-  ["姤", "大过", "鼎", "恒", "巽", "井", "蛊", "升"],
-  ["讼", "困", "未济", "解", "涣", "坎", "蹇", "师"],
-  ["遁", "咸", "旅", "小过", "渐", "蹇", "艮", "谦"],
-  ["否", "临", "晋", "豫", "观", "比", "剥", "坤"]
+  ["乾", "履", "同人", "无妄", "姤", "讼", "遁", "否"],
+  ["夬", "兑", "革", "随", "大过", "困", "咸", "萃"],
+  ["大有", "睽", "离", "噬嗑", "鼎", "未济", "旅", "晋"],
+  ["大壮", "归妹", "丰", "震", "恒", "解", "小过", "豫"],
+  ["小畜", "中孚", "家人", "益", "巽", "涣", "渐", "观"],
+  ["需", "节", "既济", "屯", "井", "习坎", "蹇", "比"],
+  ["大畜", "损", "贲", "颐", "蛊", "蒙", "艮", "剥"],
+  ["泰", "临", "明夷", "复", "升", "师", "谦", "坤"]
 ];
 const LIU_YAO_HEXAGRAM_MAP = {
   // 乾宫
@@ -304,7 +304,7 @@ liuyaoForm.addEventListener("submit", (event) => {
     const sel = document.getElementById(`ly-coin-${i}`);
     const raw = sel ? sel.value : "";
     if (raw === "" || raw === null) {
-      alert("请在下方的六次抛掷中，依次为初爻到上爻各选一项（6／7／8／9）。");
+      alert("请先从初爻到上爻完成六次钱币抛掷。");
       return;
     }
     coinTotals.push(Number(raw));
@@ -383,22 +383,67 @@ function setupLiuyaoForm() {
   lyTimeSource.addEventListener("change", syncLiuyaoTimeFields);
   syncLiuyaoTimeFields();
   populateLiuyaoCoinSelects();
+  lyCoinsWrap.addEventListener("click", handleLiuyaoCoinClick);
   lyInputMode.addEventListener("change", syncLiuyaoInputMode);
   syncLiuyaoInputMode();
 }
 
 function populateLiuyaoCoinSelects() {
-  const optionsHtml = `
-    <option value="">请选择</option>
-    <option value="6">6（老阴·动）</option>
-    <option value="7">7（少阳）</option>
-    <option value="8">8（少阴）</option>
-    <option value="9">9（老阳·动）</option>
-  `;
   for (let i = 1; i <= 6; i += 1) {
-    const el = document.getElementById(`ly-coin-${i}`);
-    if (el) el.innerHTML = optionsHtml;
+    setCoinFacesForLine(i, ["背", "背", "背"]);
   }
+}
+
+function handleLiuyaoCoinClick(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+
+  if (target.id === "ly-coins-reset") {
+    populateLiuyaoCoinSelects();
+    return;
+  }
+
+  const button = target.closest("[data-coin-face]");
+  if (!button) return;
+  const line = Number(button.getAttribute("data-coin-line"));
+  const index = Number(button.getAttribute("data-coin-index"));
+  if (!Number.isInteger(line) || !Number.isInteger(index) || line < 1 || line > 6 || index < 0 || index > 2) return;
+  flipCoinFace(line, index);
+}
+
+function flipCoinFace(line, index) {
+  const faces = getCoinFacesForLine(line);
+  faces[index] = faces[index] === "字" ? "背" : "字";
+  setCoinFacesForLine(line, faces);
+}
+
+function setCoinFacesForLine(line, faces) {
+  const hiddenInput = document.getElementById(`ly-coin-${line}`);
+  const resultEl = document.getElementById(`ly-coin-result-${line}`);
+  const facesEl = document.getElementById(`ly-coin-faces-${line}`);
+  if (!hiddenInput || !resultEl || !facesEl) return;
+  const total = faces.reduce((sum, face) => sum + (face === "字" ? 3 : 2), 0);
+  const label = { 6: "老阴·动", 7: "少阳", 8: "少阴", 9: "老阳·动" }[total] || "";
+  hiddenInput.value = String(total);
+  hiddenInput.dataset.faces = faces.join("");
+  renderCoinFaces(facesEl, faces, line);
+  resultEl.textContent = `${total}（${label}）`;
+  resultEl.classList.add("ready");
+}
+
+function getCoinFacesForLine(line) {
+  const hiddenInput = document.getElementById(`ly-coin-${line}`);
+  const raw = hiddenInput?.dataset?.faces || "背背背";
+  return Array.from(raw).slice(0, 3).map((face) => (face === "字" ? "字" : "背"));
+}
+
+function renderCoinFaces(container, faces, line) {
+  container.innerHTML = faces
+    .map((face, index) => {
+      const cls = face === "字" ? " is-yang" : face === "背" ? " is-yin" : "";
+      return `<button class="coin${cls}" type="button" data-coin-line="${line}" data-coin-index="${index}" data-coin-face="${escapeHTML(face)}">${escapeHTML(face)}</button>`;
+    })
+    .join("");
 }
 
 function syncLiuyaoInputMode() {
@@ -892,6 +937,9 @@ function runAccuracySelfCheck() {
     }
     const allOldYang = calcLiuyaoChartFromCoins([9, 9, 9, 9, 9, 9], { movingMode: "number-only", timeInfo: null });
     if (!(allOldYang.mainCode === "111111" && allOldYang.changedCode === "000000" && allOldYang.movingLines.length === 6)) {
+      failed = true;
+    }
+    if (getHexagramInfo("乾", "兑").shortName !== "履" || getHexagramInfo("艮", "坎").shortName !== "蒙") {
       failed = true;
     }
 

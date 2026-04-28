@@ -93,7 +93,7 @@
             起卦方式
             <select id="ly-input-mode">
               <option value="numbers">数字起卦（两数取卦）</option>
-              <option value="coins">三枚钱币（录入每次合计数）</option>
+              <option value="coins">三枚钱币（手动翻面）</option>
             </select>
           </label>
           <div id="ly-numbers-wrap" class="ly-numbers-wrap">
@@ -107,15 +107,60 @@
           </label>
           </div>
           <fieldset id="ly-coins-wrap" class="ly-coins-wrap hidden">
-            <legend class="coins-legend">六次抛掷（自下而上 · 初爻→上爻），每爻选三枚硬币正面数之和（6／7／8／9）</legend>
-            <p class="coins-hint">约定：字面为阳计 3 点，字背为阴计 2 点，三枚之和为爻值；6 为阴动，7 为阳静，8 为阴静，9 为阳动。</p>
+            <legend class="coins-legend">六次抛掷（自下而上 · 初爻→上爻），按现实硬币结果手动翻面</legend>
+            <p class="coins-hint">约定：字面为阳计 3 点，字背为阴计 2 点；默认显示字背，点击硬币即可在字/背之间翻面，三枚之和为爻值。6 为阴动，7 为阳静，8 为阴静，9 为阳动。</p>
+            <div class="coins-toolbar">
+              <button id="ly-coins-reset" class="secondary-btn" type="button">重置钱币</button>
+            </div>
             <div class="coins-grid">
-              <label><span class="coins-pos">初爻</span><select id="ly-coin-1" autocomplete="off"></select></label>
-              <label><span class="coins-pos">二爻</span><select id="ly-coin-2" autocomplete="off"></select></label>
-              <label><span class="coins-pos">三爻</span><select id="ly-coin-3" autocomplete="off"></select></label>
-              <label><span class="coins-pos">四爻</span><select id="ly-coin-4" autocomplete="off"></select></label>
-              <label><span class="coins-pos">五爻</span><select id="ly-coin-5" autocomplete="off"></select></label>
-              <label><span class="coins-pos">上爻</span><select id="ly-coin-6" autocomplete="off"></select></label>
+              <div class="coin-card" data-coin-card="1">
+                <div class="coin-card-head">
+                  <span class="coins-pos">初爻</span>
+                  <span id="ly-coin-result-1" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-1" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-1" autocomplete="off" />
+              </div>
+              <div class="coin-card" data-coin-card="2">
+                <div class="coin-card-head">
+                  <span class="coins-pos">二爻</span>
+                  <span id="ly-coin-result-2" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-2" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-2" autocomplete="off" />
+              </div>
+              <div class="coin-card" data-coin-card="3">
+                <div class="coin-card-head">
+                  <span class="coins-pos">三爻</span>
+                  <span id="ly-coin-result-3" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-3" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-3" autocomplete="off" />
+              </div>
+              <div class="coin-card" data-coin-card="4">
+                <div class="coin-card-head">
+                  <span class="coins-pos">四爻</span>
+                  <span id="ly-coin-result-4" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-4" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-4" autocomplete="off" />
+              </div>
+              <div class="coin-card" data-coin-card="5">
+                <div class="coin-card-head">
+                  <span class="coins-pos">五爻</span>
+                  <span id="ly-coin-result-5" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-5" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-5" autocomplete="off" />
+              </div>
+              <div class="coin-card" data-coin-card="6">
+                <div class="coin-card-head">
+                  <span class="coins-pos">上爻</span>
+                  <span id="ly-coin-result-6" class="coin-result">未抛</span>
+                </div>
+                <div id="ly-coin-faces-6" class="coin-faces" aria-hidden="true"></div>
+                <input type="hidden" id="ly-coin-6" autocomplete="off" />
+              </div>
             </div>
           </fieldset>
           <label>
@@ -158,7 +203,7 @@
             <button type="submit">起卦</button>
           </div>
           <p class="ly-mode-note muted" id="ly-mode-note-numbers">数字起卦：由两整数定本卦与单动爻。</p>
-          <p class="ly-mode-note muted hidden" id="ly-mode-note-coins">钱币起卦：六次合计直接定六爻与全部动爻；取时仅用于专业盘取月建/日辰/旬空。</p>
+          <p class="ly-mode-note muted hidden" id="ly-mode-note-coins">钱币起卦：现实抛币后，在界面中点击硬币翻到对应正反面，六次结果直接定六爻与全部动爻；取时仅用于专业盘取月建/日辰/旬空。</p>
         </form>
 
         <article id="liuyao-result" class="result-card hidden"></article>
