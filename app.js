@@ -160,6 +160,11 @@ const lyTimeSourceWrap = document.getElementById("ly-time-source-wrap");
 const lyTimeSource = document.getElementById("ly-time-source");
 const lyManualTimeWrap = document.getElementById("ly-manual-time-wrap");
 const lyManualTime = document.getElementById("ly-manual-time");
+const lyInputMode = document.getElementById("ly-input-mode");
+const lyNumbersWrap = document.getElementById("ly-numbers-wrap");
+const lyCoinsWrap = document.getElementById("ly-coins-wrap");
+const lyModeNoteNumbers = document.getElementById("ly-mode-note-numbers");
+const lyModeNoteCoins = document.getElementById("ly-mode-note-coins");
 
 let currentChartData = null;
 let currentRecord = null;
@@ -251,15 +256,11 @@ clearBaziBtn.addEventListener("click", () => {
 
 liuyaoForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const n1 = Number(document.getElementById("ly-num-1").value);
-  const n2 = Number(document.getElementById("ly-num-2").value);
-  if (!Number.isInteger(n1) || !Number.isInteger(n2)) {
-    alert("请输入两个整数。");
-    return;
-  }
   const movingMode = lyMovingMode.value;
   const questionType = lyQuestionType.value;
   const viewMode = lyViewMode.value;
+  const inputMode = lyInputMode.value;
+
   let timeInfo = null;
   let liuyaoDate = new Date();
   if (movingMode === "number-with-time") {
@@ -282,8 +283,45 @@ liuyaoForm.addEventListener("submit", (event) => {
     timeInfo = buildTimeInfo(dateObj, source);
   }
 
-  const chart = calcLiuyaoChart(n1, n2, { movingMode, timeInfo });
-  renderLiuyaoResult(chart, n1, n2, liuyaoDate, { questionType, viewMode });
+  if (inputMode === "numbers") {
+    const n1 = Number(document.getElementById("ly-num-1").value);
+    const n2 = Number(document.getElementById("ly-num-2").value);
+    if (!Number.isInteger(n1) || !Number.isInteger(n2)) {
+      alert("请输入两个整数。");
+      return;
+    }
+    const chart = calcLiuyaoChart(n1, n2, { movingMode, timeInfo });
+    renderLiuyaoResult(chart, liuyaoDate, {
+      questionType,
+      viewMode,
+      inputMeta: { kind: "numbers", n1, n2 }
+    });
+    return;
+  }
+
+  const coinTotals = [];
+  for (let i = 1; i <= 6; i += 1) {
+    const sel = document.getElementById(`ly-coin-${i}`);
+    const raw = sel ? sel.value : "";
+    if (raw === "" || raw === null) {
+      alert("请在下方的六次抛掷中，依次为初爻到上爻各选一项（6／7／8／9）。");
+      return;
+    }
+    coinTotals.push(Number(raw));
+  }
+  for (const t of coinTotals) {
+    if (![6, 7, 8, 9].includes(t)) {
+      alert("每笔爻的和只能为 6、7、8、9（三枚硬币合计）。");
+      return;
+    }
+  }
+
+  const chart = calcLiuyaoChartFromCoins(coinTotals, { movingMode, timeInfo });
+  renderLiuyaoResult(chart, liuyaoDate, {
+    questionType,
+    viewMode,
+    inputMeta: { kind: "coins", coinTotals }
+  });
 });
 
 liuyaoResult.addEventListener("click", async (event) => {
@@ -344,6 +382,31 @@ function setupLiuyaoForm() {
   lyMovingMode.addEventListener("change", syncLiuyaoTimeFields);
   lyTimeSource.addEventListener("change", syncLiuyaoTimeFields);
   syncLiuyaoTimeFields();
+  populateLiuyaoCoinSelects();
+  lyInputMode.addEventListener("change", syncLiuyaoInputMode);
+  syncLiuyaoInputMode();
+}
+
+function populateLiuyaoCoinSelects() {
+  const optionsHtml = `
+    <option value="">请选择</option>
+    <option value="6">6（老阴·动）</option>
+    <option value="7">7（少阳）</option>
+    <option value="8">8（少阴）</option>
+    <option value="9">9（老阳·动）</option>
+  `;
+  for (let i = 1; i <= 6; i += 1) {
+    const el = document.getElementById(`ly-coin-${i}`);
+    if (el) el.innerHTML = optionsHtml;
+  }
+}
+
+function syncLiuyaoInputMode() {
+  const coins = lyInputMode.value === "coins";
+  if (lyCoinsWrap) lyCoinsWrap.classList.toggle("hidden", !coins);
+  if (lyNumbersWrap) lyNumbersWrap.classList.toggle("hidden", coins);
+  if (lyModeNoteNumbers) lyModeNoteNumbers.classList.toggle("hidden", coins);
+  if (lyModeNoteCoins) lyModeNoteCoins.classList.toggle("hidden", !coins);
 }
 
 function syncLiuyaoTimeFields() {
@@ -827,6 +890,10 @@ function runAccuracySelfCheck() {
     if (!(liuyaoCase.upper === "巽" && liuyaoCase.lower === "离" && liuyaoCase.movingLine === 4)) {
       failed = true;
     }
+    const allOldYang = calcLiuyaoChartFromCoins([9, 9, 9, 9, 9, 9], { movingMode: "number-only", timeInfo: null });
+    if (!(allOldYang.mainCode === "111111" && allOldYang.changedCode === "000000" && allOldYang.movingLines.length === 6)) {
+      failed = true;
+    }
 
     if (failed) {
       alert("排盘核心自检未通过，请勿用于精算。建议刷新或检查发布文件完整性。");
@@ -1055,52 +1122,6 @@ function calcShenSha(dayGan, natal, targetGz, level) {
   return [...result];
 }
 
-function calcLiuyaoChart(num1, num2, options = {}) {
-  const movingMode = options.movingMode || "number-only";
-  const timeInfo = options.timeInfo || null;
-  const sum = Math.abs(num1) + Math.abs(num2);
-  const upperIdx = Math.abs(num1) % 8;
-  const lowerIdx = Math.abs(num2) % 8;
-  const shichenNumber = timeInfo ? timeInfo.shichenNumber : 0;
-  const movingSeed = movingMode === "number-with-time" ? sum + shichenNumber : sum;
-  const movingLine = (movingSeed % 6) || 6;
-  const upperBin = trigramBinary(upperIdx);
-  const lowerBin = trigramBinary(lowerIdx);
-  const baseLines = [...lowerBin, ...upperBin];
-  const changedLines = baseLines.slice();
-  changedLines[movingLine - 1] = changedLines[movingLine - 1] ? 0 : 1;
-  const changedLower = changedLines.slice(0, 3);
-  const changedUpper = changedLines.slice(3, 6);
-  const huLower = [baseLines[1], baseLines[2], baseLines[3]];
-  const huUpper = [baseLines[2], baseLines[3], baseLines[4]];
-  const reversedLines = baseLines.slice().reverse();
-  const zongLower = reversedLines.slice(0, 3);
-  const zongUpper = reversedLines.slice(3, 6);
-  const cuoLines = baseLines.map((line) => (line ? 0 : 1));
-  const cuoLower = cuoLines.slice(0, 3);
-  const cuoUpper = cuoLines.slice(3, 6);
-  return {
-    mainCode: baseLines.join(""),
-    changedCode: changedLines.join(""),
-    upper: LIUYAO_NAMES[upperIdx],
-    lower: LIUYAO_NAMES[lowerIdx],
-    movingLine,
-    movingMode,
-    movingSeed,
-    timeInfo,
-    changedUpper: LIUYAO_NAMES[trigramIndexFromBinary(changedUpper)],
-    changedLower: LIUYAO_NAMES[trigramIndexFromBinary(changedLower)],
-    huUpper: LIUYAO_NAMES[trigramIndexFromBinary(huUpper)],
-    huLower: LIUYAO_NAMES[trigramIndexFromBinary(huLower)],
-    zongUpper: LIUYAO_NAMES[trigramIndexFromBinary(zongUpper)],
-    zongLower: LIUYAO_NAMES[trigramIndexFromBinary(zongLower)],
-    cuoUpper: LIUYAO_NAMES[trigramIndexFromBinary(cuoUpper)],
-    cuoLower: LIUYAO_NAMES[trigramIndexFromBinary(cuoLower)],
-    baseLines,
-    changedLines
-  };
-}
-
 function trigramBinary(idx) {
   const map = [
     [1, 1, 1],
@@ -1121,9 +1142,118 @@ function trigramIndexFromBinary(bin) {
   return lookup[key];
 }
 
-function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
+/** 三钱法单笔和 6／7／8／9 → 阴阳画（7／9 为重阳面，6／8 为重阴面） */
+function coinTotalToLineBit(total) {
+  return total === 7 || total === 9 ? 1 : 0;
+}
+
+function completeLiuyaoChartFromLines(params) {
+  const {
+    baseLines,
+    changedLines,
+    movingSeed,
+    movingLines,
+    movingMode,
+    timeInfo,
+    inputKind
+  } = params;
+  const changedLower = changedLines.slice(0, 3);
+  const changedUpper = changedLines.slice(3, 6);
+  const huLower = [baseLines[1], baseLines[2], baseLines[3]];
+  const huUpper = [baseLines[2], baseLines[3], baseLines[4]];
+  const reversedLines = baseLines.slice().reverse();
+  const zongLower = reversedLines.slice(0, 3);
+  const zongUpper = reversedLines.slice(3, 6);
+  const cuoLines = baseLines.map((line) => (line ? 0 : 1));
+  const cuoLower = cuoLines.slice(0, 3);
+  const cuoUpper = cuoLines.slice(3, 6);
+  const upperBinThree = baseLines.slice(3, 6);
+  const lowerBinThree = baseLines.slice(0, 3);
+  const upperIdx = trigramIndexFromBinary(upperBinThree);
+  const lowerIdx = trigramIndexFromBinary(lowerBinThree);
+  const legacyMovingLine = movingLines.length ? movingLines[0] : 0;
+  return {
+    mainCode: baseLines.join(""),
+    changedCode: changedLines.join(""),
+    upper: LIUYAO_NAMES[upperIdx],
+    lower: LIUYAO_NAMES[lowerIdx],
+    movingLine: legacyMovingLine,
+    movingLines: movingLines.slice(),
+    movingMode,
+    movingSeed,
+    timeInfo,
+    inputKind: inputKind || "numbers",
+    changedUpper: LIUYAO_NAMES[trigramIndexFromBinary(changedUpper)],
+    changedLower: LIUYAO_NAMES[trigramIndexFromBinary(changedLower)],
+    huUpper: LIUYAO_NAMES[trigramIndexFromBinary(huUpper)],
+    huLower: LIUYAO_NAMES[trigramIndexFromBinary(huLower)],
+    zongUpper: LIUYAO_NAMES[trigramIndexFromBinary(zongUpper)],
+    zongLower: LIUYAO_NAMES[trigramIndexFromBinary(zongLower)],
+    cuoUpper: LIUYAO_NAMES[trigramIndexFromBinary(cuoUpper)],
+    cuoLower: LIUYAO_NAMES[trigramIndexFromBinary(cuoLower)],
+    baseLines,
+    changedLines
+  };
+}
+
+function calcLiuyaoChart(num1, num2, options = {}) {
+  const movingMode = options.movingMode || "number-only";
+  const timeInfo = options.timeInfo || null;
+  const sum = Math.abs(num1) + Math.abs(num2);
+  const upperIdx = Math.abs(num1) % 8;
+  const lowerIdx = Math.abs(num2) % 8;
+  const shichenNumber = timeInfo ? timeInfo.shichenNumber : 0;
+  const movingSeed = movingMode === "number-with-time" ? sum + shichenNumber : sum;
+  const movingLine = (movingSeed % 6) || 6;
+  const movingLines = [movingLine];
+  const upperBin = trigramBinary(upperIdx);
+  const lowerBin = trigramBinary(lowerIdx);
+  const baseLines = [...lowerBin, ...upperBin];
+  const changedLines = baseLines.slice();
+  changedLines[movingLine - 1] = changedLines[movingLine - 1] ? 0 : 1;
+  return completeLiuyaoChartFromLines({
+    baseLines,
+    changedLines,
+    movingSeed,
+    movingLines,
+    movingMode,
+    timeInfo,
+    inputKind: "numbers"
+  });
+}
+
+function calcLiuyaoChartFromCoins(coinTotals, options = {}) {
+  const movingMode = options.movingMode || "number-only";
+  const timeInfo = options.timeInfo || null;
+  if (!Array.isArray(coinTotals) || coinTotals.length !== 6) {
+    throw new Error("coinTotals 须为长度 6 的数组");
+  }
+  const baseLines = coinTotals.map(coinTotalToLineBit);
+  const changedLines = baseLines.slice();
+  const movingLines = [];
+  for (let i = 0; i < 6; i += 1) {
+    const t = coinTotals[i];
+    if (t === 6 || t === 9) {
+      movingLines.push(i + 1);
+      changedLines[i] = changedLines[i] ? 0 : 1;
+    }
+  }
+  const movingSeed = coinTotals.reduce((acc, x) => acc + x, 0);
+  return completeLiuyaoChartFromLines({
+    baseLines,
+    changedLines,
+    movingSeed,
+    movingLines,
+    movingMode,
+    timeInfo,
+    inputKind: "coins"
+  });
+}
+
+function renderLiuyaoResult(chart, liuyaoDate, options = {}) {
   const questionType = options.questionType || "general";
   const viewMode = options.viewMode || "simple";
+  const inputMeta = options.inputMeta || { kind: "numbers", n1: "", n2: "" };
   const questionProfile = QUESTION_PROFILE[questionType] || QUESTION_PROFILE.general;
   const upperMeta = trigramMetaByName(chart.upper);
   const lowerMeta = trigramMetaByName(chart.lower);
@@ -1140,7 +1270,13 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
   const huInfo = getHexagramInfo(chart.huUpper, chart.huLower);
   const zongInfo = getHexagramInfo(chart.zongUpper, chart.zongLower);
   const cuoInfo = getHexagramInfo(chart.cuoUpper, chart.cuoLower);
-  const benMovingLine = benInfo.lines[chart.movingLine - 1] || null;
+  const movers = chart.movingLines && chart.movingLines.length ? chart.movingLines : chart.movingLine ? [chart.movingLine] : [];
+  const movingPillText =
+    movers.length === 0 ? "无动爻（静卦）" : movers.length === 1 ? `第${movers[0]}爻` : `第${movers.join("、")}爻（${movers.length} 处）`;
+  const inputLineHtml =
+    inputMeta.kind === "coins"
+      ? `<p>起卦方式：三枚钱币（自下而上六次合计：${escapeHTML(inputMeta.coinTotals.join("、"))}）</p>`
+      : `<p>输入数字：${inputMeta.n1}，${inputMeta.n2}</p>`;
   const pro = buildProfessionalLiuYao(chart, liuyaoDate);
   const yongShenSuggestion = getYongShenSuggestion(questionType, pro);
   const interpretation = buildLiuyaoInterpretation({
@@ -1153,27 +1289,41 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
   });
 
   const movingDesc =
-    chart.movingMode === "number-with-time" && chart.timeInfo
-      ? `两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）`
-      : "仅两数字";
+    chart.inputKind === "coins"
+      ? "三枚钱币法（六次合计定六爻与全部动爻）"
+      : chart.movingMode === "number-with-time" && chart.timeInfo
+        ? `两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）`
+        : "仅两数字";
   const timeDesc =
     chart.timeInfo
       ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时`
       : "-";
+  const paramDesc = chart.inputKind === "coins" ? `六次合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`;
 
   const proOpen = viewMode === "pro" ? "open" : "";
+
+  const yaoCiRows =
+    movers.length === 0
+      ? `<tr><td>动爻爻辞</td><td>无动爻（静卦）</td></tr>`
+      : movers
+          .map((pos) => {
+            const ln = benInfo.lines[pos - 1];
+            return `<tr><td>本卦第${pos}爻</td><td>${ln ? `${ln.name}：${ln.scripture}` : "-"}</td></tr>`;
+          })
+          .join("");
 
   liuyaoResult.classList.remove("hidden");
   liuyaoResult.innerHTML = `
     <h4>起卦结果</h4>
-    <p>输入数字：${n1}，${n2}</p>
+    ${inputLineHtml}
     <p>问事类型：${questionProfile.label}</p>
-    <p>动爻方式：${movingDesc}（动爻计算数：${chart.movingSeed}）</p>
-    <p>时辰信息：${timeDesc}</p>
+    <p>起卦规则：${movingDesc}</p>
+    <p>起卦参数：${paramDesc}</p>
+    <p>取时：${timeDesc}</p>
     <div class="pill-row">
       <span class="pill">本卦：${chart.upper}上${chart.lower}下</span>
       <span class="pill">周易：${benInfo.fullName}</span>
-      <span class="pill">动爻：第${chart.movingLine}爻</span>
+      <span class="pill">动爻：${movingPillText}</span>
       <span class="pill">变卦：${chart.changedUpper}上${chart.changedLower}下</span>
       <span class="pill">周易：${bianInfo.fullName}</span>
       <span class="pill">互卦：${chart.huUpper}上${chart.huLower}下</span>
@@ -1214,7 +1364,7 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
         <tr><th>重点爻辞</th><th>内容</th></tr>
       </thead>
       <tbody>
-        <tr><td>本卦第${chart.movingLine}爻</td><td>${benMovingLine ? `${benMovingLine.name}：${benMovingLine.scripture}` : "-"}</td></tr>
+        ${yaoCiRows}
       </tbody>
     </table>
     <details ${proOpen}>
@@ -1252,7 +1402,7 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
             const changed = chart.changedLines[index];
             const baseText = line ? "阳爻（———）" : "阴爻（— —）";
             const changedText = changed ? "阳爻（———）" : "阴爻（— —）";
-            const moving = index + 1 === chart.movingLine ? "是" : "否";
+            const moving = movers.includes(index + 1) ? "是" : "否";
             return `<tr><td>${index + 1}</td><td>${baseText}</td><td>${changedText}</td><td>${moving}</td></tr>`;
           })
           .join("")}
@@ -1268,8 +1418,7 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
   `;
 
   currentLiuYaoText = buildLiuyaoText({
-    n1,
-    n2,
+    inputMeta,
     chart,
     upperMeta,
     lowerMeta,
@@ -1290,7 +1439,25 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
   });
 
   currentLiuYaoJson = {
-    input: { n1, n2, questionType, questionLabel: questionProfile.label, movingMode: chart.movingMode, movingSeed: chart.movingSeed },
+    input:
+      inputMeta.kind === "coins"
+        ? {
+            kind: "coins",
+            coinTotals: inputMeta.coinTotals,
+            questionType,
+            questionLabel: questionProfile.label,
+            movingMode: chart.movingMode,
+            movingSeed: chart.movingSeed
+          }
+        : {
+            kind: "numbers",
+            n1: inputMeta.n1,
+            n2: inputMeta.n2,
+            questionType,
+            questionLabel: questionProfile.label,
+            movingMode: chart.movingMode,
+            movingSeed: chart.movingSeed
+          },
     time: chart.timeInfo || null,
     hexagrams: {
       ben: benInfo,
@@ -1299,6 +1466,7 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
       zong: zongInfo,
       cuo: cuoInfo
     },
+    movingLines: movers,
     movingLine: chart.movingLine,
     interpretation,
     yongShenSuggestion,
@@ -1307,7 +1475,7 @@ function renderLiuyaoResult(chart, n1, n2, liuyaoDate, options = {}) {
       position: index + 1,
       base: line ? "阳" : "阴",
       changed: chart.changedLines[index] ? "阳" : "阴",
-      moving: index + 1 === chart.movingLine
+      moving: movers.includes(index + 1)
     }))
   };
 }
@@ -1318,8 +1486,7 @@ function trigramMetaByName(name) {
 
 function buildLiuyaoText(payload) {
   const {
-    n1,
-    n2,
+    inputMeta,
     chart,
     upperMeta,
     lowerMeta,
@@ -1338,10 +1505,29 @@ function buildLiuyaoText(payload) {
     cuoInfo,
     pro
   } = payload;
+  const movers =
+    chart.movingLines && chart.movingLines.length ? chart.movingLines : chart.movingLine ? [chart.movingLine] : [];
+  const inputHead =
+    inputMeta.kind === "coins"
+      ? `起卦方式：三枚钱币，自下而上六次合计：${inputMeta.coinTotals.join("、")}`
+      : `输入数字：${inputMeta.n1}，${inputMeta.n2}`;
+  const movingModeLine =
+    chart.inputKind === "coins"
+      ? "起卦规则：三枚钱币法（六次合计定爻象与全部动爻）"
+      : chart.movingMode === "number-with-time" && chart.timeInfo
+        ? `起卦规则：两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）`
+        : `起卦规则：仅两数字`;
+  const yaoTextsForMoving = movers
+    .map((pos) => {
+      const ln = benInfo.lines[pos - 1];
+      return ln ? `${ln.name}：${ln.scripture}` : `第${pos}爻：（无文本）`;
+    })
+    .join("；");
+
   const lines = chart.baseLines
     .map((line, index) => {
       const changed = chart.changedLines[index];
-      const moving = index + 1 === chart.movingLine ? "动爻" : "";
+      const moving = movers.includes(index + 1) ? "动爻" : "";
       const baseText = line ? "阳爻(———)" : "阴爻(— —)";
       const changedText = changed ? "阳爻(———)" : "阴爻(— —)";
       return `第${index + 1}爻：本卦${baseText} -> 变卦${changedText} ${moving}`.trim();
@@ -1350,14 +1536,14 @@ function buildLiuyaoText(payload) {
 
   return [
     "六爻排盘结果",
-    `输入数字：${n1}，${n2}`,
-    `动爻方式：${chart.movingMode === "number-with-time" && chart.timeInfo ? `两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）` : "仅两数字"}`,
-    `动爻计算数：${chart.movingSeed}`,
-    `时辰信息：${chart.timeInfo ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时` : "-"}`,
+    inputHead,
+    movingModeLine,
+    `起卦参数：${chart.inputKind === "coins" ? `六次合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`}`,
+    `取时：${chart.timeInfo ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时` : "-"}`,
     `本卦：${chart.upper}上${chart.lower}下`,
     `周易本卦：${benInfo.fullName}（${benInfo.tip}）`,
     `本卦卦辞：${benInfo.scripture || "-"}`,
-    `动爻：第${chart.movingLine}爻`,
+    `动爻爻位：${movers.length ? `第 ${movers.join("、")} 爻` : "无动爻（静卦）"}`,
     `变卦：${chart.changedUpper}上${chart.changedLower}下`,
     `周易变卦：${bianInfo.fullName}（${bianInfo.tip}）`,
     `变卦卦辞：${bianInfo.scripture || "-"}`,
@@ -1370,9 +1556,7 @@ function buildLiuyaoText(payload) {
     `错卦：${chart.cuoUpper}上${chart.cuoLower}下`,
     `周易错卦：${cuoInfo.fullName}（${cuoInfo.tip}）`,
     `错卦卦辞：${cuoInfo.scripture || "-"}`,
-    `本卦动爻爻辞：${
-      (benInfo.lines[chart.movingLine - 1] && `${benInfo.lines[chart.movingLine - 1].name}：${benInfo.lines[chart.movingLine - 1].scripture}`) || "-"
-    }`,
+    `本卦动爻爻辞：${yaoTextsForMoving || "-"}`,
     `月建：${pro.monthBranch}，日辰：${pro.dayGanzhi}，旬空：${pro.dayXunKong}`,
     `本卦上卦：${upperMeta.name}(${upperMeta.symbol}/${upperMeta.element}/${upperMeta.binary})`,
     `本卦下卦：${lowerMeta.name}(${lowerMeta.symbol}/${lowerMeta.element}/${lowerMeta.binary})`,
@@ -1420,14 +1604,28 @@ function getYongShenSuggestion(questionType, pro) {
 
 function buildLiuyaoInterpretation({ chart, questionType, benInfo, bianInfo, pro, yongShenSuggestion }) {
   const profile = QUESTION_PROFILE[questionType] || QUESTION_PROFILE.general;
-  const movingLevel = chart.movingLine <= 2 ? "事情处于起步阶段" : chart.movingLine <= 4 ? "事情正在发展变化中" : "事情接近结果阶段";
+  const movers =
+    chart.movingLines && chart.movingLines.length ? chart.movingLines : chart.movingLine ? [chart.movingLine] : [];
+  const refLine =
+    movers.length > 0 ? Math.min(...movers) : chart.inputKind === "coins" ? 4 : chart.movingLine > 0 ? chart.movingLine : 4;
+  const movingLevel =
+    movers.length === 0
+      ? "卦无动爻，偏静卦，可侧重卦辞与世应用神"
+      : refLine <= 2
+        ? "事情处于起步阶段"
+        : refLine <= 4
+          ? "事情正在发展变化中"
+          : "事情接近结果阶段";
   const monthDay = `月建${pro.monthBranch}，日辰${pro.dayGanzhi}`;
   const summary = `${profile.label}类事项：本卦${benInfo.shortName}变${bianInfo.shortName}，${movingLevel}。${monthDay}。`;
-  const bullets = [
-    `先看本卦卦辞定大方向，再看第${chart.movingLine}爻爻辞定关键触发点`,
-    `变卦${bianInfo.shortName}代表后续走向，若与本卦五行生扶，多主可成`,
-    yongShenSuggestion.text
-  ];
+  const yaoBullet =
+    movers.length === 0
+      ? "卦无动爻时，可先以卦辞定大势，再配合世应与用神推演"
+      : movers.length === 1
+        ? `先看本卦卦辞定大方向，再看第${movers[0]}爻爻辞定关键触发点`
+        : `多爻并动（第${movers.join("、")}爻）：宜分轻重主客，并参各动爻爻辞`;
+
+  const bullets = [yaoBullet, `变卦${bianInfo.shortName}代表后续走向，若与本卦五行生扶，多主可成`, yongShenSuggestion.text];
   return { summary, bullets };
 }
 

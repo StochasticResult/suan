@@ -90,13 +90,34 @@
         <h2>六爻排盘</h2>
         <form id="liuyao-form" class="form-grid">
           <label>
+            起卦方式
+            <select id="ly-input-mode">
+              <option value="numbers">数字起卦（两数取卦）</option>
+              <option value="coins">三枚钱币（录入每次合计数）</option>
+            </select>
+          </label>
+          <div id="ly-numbers-wrap" class="ly-numbers-wrap">
+          <label>
             数字一（任意整数）
-            <input type="number" id="ly-num-1" required />
+            <input type="number" id="ly-num-1" />
           </label>
           <label>
             数字二（任意整数）
-            <input type="number" id="ly-num-2" required />
+            <input type="number" id="ly-num-2" />
           </label>
+          </div>
+          <fieldset id="ly-coins-wrap" class="ly-coins-wrap hidden">
+            <legend class="coins-legend">六次抛掷（自下而上 · 初爻→上爻），每爻选三枚硬币正面数之和（6／7／8／9）</legend>
+            <p class="coins-hint">约定：字面为阳计 3 点，字背为阴计 2 点，三枚之和为爻值；6 为阴动，7 为阳静，8 为阴静，9 为阳动。</p>
+            <div class="coins-grid">
+              <label><span class="coins-pos">初爻</span><select id="ly-coin-1" autocomplete="off"></select></label>
+              <label><span class="coins-pos">二爻</span><select id="ly-coin-2" autocomplete="off"></select></label>
+              <label><span class="coins-pos">三爻</span><select id="ly-coin-3" autocomplete="off"></select></label>
+              <label><span class="coins-pos">四爻</span><select id="ly-coin-4" autocomplete="off"></select></label>
+              <label><span class="coins-pos">五爻</span><select id="ly-coin-5" autocomplete="off"></select></label>
+              <label><span class="coins-pos">上爻</span><select id="ly-coin-6" autocomplete="off"></select></label>
+            </div>
+          </fieldset>
           <label>
             问事类型
             <select id="ly-question-type">
@@ -116,10 +137,10 @@
             </select>
           </label>
           <label>
-            动爻计算
+            取时方式
             <select id="ly-moving-mode">
-              <option value="number-only">仅按两数字</option>
-              <option value="number-with-time">两数字 + 时辰</option>
+              <option value="number-only">不取时（默认）</option>
+              <option value="number-with-time">取时（用于专业盘）</option>
             </select>
           </label>
           <label id="ly-time-source-wrap" class="hidden">
@@ -136,6 +157,8 @@
           <div class="form-actions">
             <button type="submit">起卦</button>
           </div>
+          <p class="ly-mode-note muted" id="ly-mode-note-numbers">数字起卦：由两整数定本卦与单动爻。</p>
+          <p class="ly-mode-note muted hidden" id="ly-mode-note-coins">钱币起卦：六次合计直接定六爻与全部动爻；取时仅用于专业盘取月建/日辰/旬空。</p>
         </form>
 
         <article id="liuyao-result" class="result-card hidden"></article>
