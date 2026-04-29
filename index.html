@@ -9,12 +9,13 @@
   <body>
     <header class="site-header">
       <h1>玄学排盘助手</h1>
-      <p>八字排盘 + 六爻排盘（本地持久化）</p>
+      <p>六爻排盘 + 奇门遁甲 + 八字排盘（本地持久化）</p>
     </header>
 
     <main class="container">
       <section class="tabs">
         <button id="tab-liuyao" class="tab-btn active" type="button">六爻排盘</button>
+        <button id="tab-qimen" class="tab-btn" type="button">奇门遁甲</button>
         <button id="tab-bazi" class="tab-btn" type="button">八字排盘</button>
       </section>
 
@@ -41,6 +42,18 @@
             <input type="time" id="bz-time" required />
           </label>
           <label>
+            出生地时间基准
+            <select id="bz-time-basis">
+              <option value="local">本机所在时区</option>
+              <option value="beijing">已是北京时间</option>
+              <option value="offset">手动 UTC 偏移</option>
+            </select>
+          </label>
+          <label id="bz-offset-wrap" class="hidden">
+            UTC 偏移（小时）
+            <input type="number" id="bz-utc-offset" min="-12" max="14" step="0.25" />
+          </label>
+          <label>
             历法
             <select id="bz-calendar">
               <option value="公历">公历</option>
@@ -50,7 +63,7 @@
             <button type="submit">开始排盘</button>
           </div>
         </form>
-        <p>固定口径：北京时间输入、晚子时次日、按分钟起运、节气精算（lunar-javascript 1.7.7）。</p>
+        <p>固定口径：按所选出生地时间基准换算为北京时间后排盘、晚子时次日、按分钟起运、节气精算（lunar-javascript 1.7.7）。</p>
 
         <article id="bazi-result" class="result-card hidden"></article>
 
@@ -92,8 +105,8 @@
           <label>
             起卦方式
             <select id="ly-input-mode">
-              <option value="numbers">数字起卦（两数取卦）</option>
-              <option value="coins">三枚钱币（手动翻面）</option>
+              <option value="coins">三枚钱币（传统钱筮）</option>
+              <option value="numbers">数字起卦（梅花便捷法）</option>
             </select>
           </label>
           <div id="ly-numbers-wrap" class="ly-numbers-wrap">
@@ -108,7 +121,7 @@
           </div>
           <fieldset id="ly-coins-wrap" class="ly-coins-wrap hidden">
             <legend class="coins-legend">六次抛掷（自下而上 · 初爻→上爻），按现实硬币结果手动翻面</legend>
-            <p class="coins-hint">约定：字面为阳计 3 点，字背为阴计 2 点；默认显示字背，点击硬币即可在字/背之间翻面，三枚之和为爻值。6 为阴动，7 为阳静，8 为阴静，9 为阳动。</p>
+            <p class="coins-hint">传统钱筮口径：字面为阴计 2 点，背面为阳计 3 点；点击硬币即可在字/背之间翻面。三字为老阴，三背为老阳，自初爻往上记录。</p>
             <div class="coins-toolbar">
               <button id="ly-coins-reset" class="secondary-btn" type="button">重置钱币</button>
             </div>
@@ -199,14 +212,66 @@
             手动时间
             <input type="datetime-local" id="ly-manual-time" />
           </label>
+          <label id="ly-time-basis-wrap" class="hidden">
+            取时时间基准
+            <select id="ly-time-basis">
+              <option value="local">本机所在时区</option>
+              <option value="beijing">已是北京时间</option>
+              <option value="offset">手动 UTC 偏移</option>
+            </select>
+          </label>
+          <label id="ly-offset-wrap" class="hidden">
+            UTC 偏移（小时）
+            <input type="number" id="ly-utc-offset" min="-12" max="14" step="0.25" />
+          </label>
           <div class="form-actions">
             <button type="submit">起卦</button>
           </div>
-          <p class="ly-mode-note muted" id="ly-mode-note-numbers">数字起卦：由两整数定本卦与单动爻。</p>
+          <p class="ly-mode-note muted" id="ly-mode-note-numbers">数字起卦：由两整数定本卦与单动爻，属于梅花易数便捷口径，不等同三钱筮法。</p>
           <p class="ly-mode-note muted hidden" id="ly-mode-note-coins">钱币起卦：现实抛币后，在界面中点击硬币翻到对应正反面，六次结果直接定六爻与全部动爻；取时仅用于专业盘取月建/日辰/旬空。</p>
         </form>
 
         <article id="liuyao-result" class="result-card hidden"></article>
+      </section>
+
+      <section id="panel-qimen" class="panel">
+        <h2>奇门遁甲</h2>
+        <form id="qimen-form" class="form-grid">
+          <label>
+            排盘时间
+            <select id="qm-time-source">
+              <option value="now">当前时间</option>
+              <option value="manual">手动选择</option>
+            </select>
+          </label>
+          <label id="qm-manual-time-wrap" class="hidden">
+            手动时间
+            <input type="datetime-local" id="qm-manual-time" />
+          </label>
+          <label>
+            时间基准
+            <select id="qm-time-basis">
+              <option value="local">本机所在时区</option>
+              <option value="beijing">已是北京时间</option>
+              <option value="offset">手动 UTC 偏移</option>
+            </select>
+          </label>
+          <label id="qm-offset-wrap" class="hidden">
+            UTC 偏移（小时）
+            <input type="number" id="qm-utc-offset" min="-12" max="14" step="0.25" />
+          </label>
+          <label>
+            起局法
+            <select id="qm-method">
+              <option value="chai-bu">时家转盘 · 拆补法</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit">排奇门盘</button>
+          </div>
+          <p class="ly-mode-note muted">口径：先按所选时间基准换算为北京时间，再以节气定阴阳遁与局数；采用时家转盘、拆补法。奇门流派较多，本盘用于固定口径排盘与学习复核。</p>
+        </form>
+        <article id="qimen-result" class="result-card hidden"></article>
       </section>
     </main>
 

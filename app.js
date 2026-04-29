@@ -1,6 +1,48 @@
 const LIUYAO_NAMES = ["乾", "兑", "离", "震", "巽", "坎", "艮", "坤"];
 const STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
 const BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+const COIN_LINE_NAMES = ["初爻", "二爻", "三爻", "四爻", "五爻", "上爻"];
+const BEIJING_OFFSET_MINUTES = 8 * 60;
+const QIMEN_PALACE_GRID = [4, 9, 2, 3, 5, 7, 8, 1, 6];
+const QIMEN_RING = [1, 8, 3, 4, 9, 2, 7, 6];
+const QIMEN_YANG_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const QIMEN_YIN_ORDER = [1, 9, 8, 7, 6, 5, 4, 3, 2];
+const QIMEN_INSTRUMENTS = ["戊", "己", "庚", "辛", "壬", "癸", "丁", "丙", "乙"];
+const QIMEN_STARS_BY_PALACE = { 1: "天蓬", 2: "天芮", 3: "天冲", 4: "天辅", 5: "天禽", 6: "天心", 7: "天柱", 8: "天任", 9: "天英" };
+const QIMEN_DOORS_BY_PALACE = { 1: "休门", 2: "死门", 3: "伤门", 4: "杜门", 6: "开门", 7: "惊门", 8: "生门", 9: "景门" };
+const QIMEN_DOOR_ORDER = ["休门", "生门", "伤门", "杜门", "景门", "死门", "惊门", "开门"];
+const QIMEN_GODS_ORDER = ["值符", "腾蛇", "太阴", "六合", "白虎", "玄武", "九地", "九天"];
+const QIMEN_METHOD_NOTE = "口径：时家转盘、拆补法；节气定阴阳遁，符头定三元；旬首定值符值使，中五寄坤二；值符随时干，值使随时支；盘面列八神、九星、八门、天盘干、地盘干。";
+const QIMEN_XUN = [
+  { start: "甲子", hidden: "戊" },
+  { start: "甲戌", hidden: "己" },
+  { start: "甲申", hidden: "庚" },
+  { start: "甲午", hidden: "辛" },
+  { start: "甲辰", hidden: "壬" },
+  { start: "甲寅", hidden: "癸" }
+];
+const QIMEN_JU_TABLE = {
+  阳: {
+    冬至: [1, 7, 4], 惊蛰: [1, 7, 4],
+    小寒: [2, 8, 5],
+    大寒: [3, 9, 6], 春分: [3, 9, 6],
+    雨水: [9, 6, 3],
+    清明: [4, 1, 7], 立夏: [4, 1, 7],
+    立春: [8, 5, 2],
+    谷雨: [5, 2, 8], 小满: [5, 2, 8],
+    芒种: [6, 3, 9]
+  },
+  阴: {
+    夏至: [9, 3, 6], 白露: [9, 3, 6],
+    小暑: [8, 2, 5],
+    大暑: [7, 1, 4], 秋分: [7, 1, 4],
+    立秋: [2, 5, 8],
+    寒露: [6, 9, 3], 立冬: [6, 9, 3],
+    处暑: [1, 4, 7],
+    霜降: [5, 8, 2], 小雪: [5, 8, 2],
+    大雪: [4, 7, 1]
+  }
+};
 const TRIGRAM_META = [
   { name: "乾", symbol: "天", element: "金", binary: "111" },
   { name: "兑", symbol: "泽", element: "金", binary: "110" },
@@ -121,7 +163,6 @@ const DAY_STEM_TO_SPIRIT_START = { 甲: 0, 乙: 0, 丙: 1, 丁: 1, 戊: 2, 己: 
 const SIX_SPIRITS = ["青龙", "朱雀", "勾陈", "螣蛇", "白虎", "玄武"];
 const BRANCH_FIVE_ELEMENTS = { 子: "水", 丑: "土", 寅: "木", 卯: "木", 辰: "土", 巳: "火", 午: "火", 未: "土", 申: "金", 酉: "金", 戌: "土", 亥: "水" };
 const FIVE_ELEMENT_INDEX = { 木: 0, 火: 1, 土: 2, 金: 3, 水: 4 };
-const PALACE_BASE_CODE = { 乾: "111111", 坎: "010010", 艮: "001001", 震: "100100", 巽: "011011", 离: "101101", 坤: "000000", 兑: "110110" };
 const STORAGE_KEY = "bazi_records_v3";
 const FIXED_DAY_SECT = 2;
 const FIXED_YUN_SECT = 2;
@@ -137,8 +178,10 @@ const QUESTION_PROFILE = {
 
 const tabBazi = document.getElementById("tab-bazi");
 const tabLiuyao = document.getElementById("tab-liuyao");
+const tabQimen = document.getElementById("tab-qimen");
 const panelBazi = document.getElementById("panel-bazi");
 const panelLiuyao = document.getElementById("panel-liuyao");
+const panelQimen = document.getElementById("panel-qimen");
 
 const baziForm = document.getElementById("bazi-form");
 const baziResult = document.getElementById("bazi-result");
@@ -150,6 +193,9 @@ const baziLiuYueSelect = document.getElementById("bz-liuyue-select");
 const baziLiuRiSelect = document.getElementById("bz-liuri-select");
 const baziRecordList = document.getElementById("bazi-record-list");
 const clearBaziBtn = document.getElementById("clear-bazi-records");
+const bzTimeBasis = document.getElementById("bz-time-basis");
+const bzOffsetWrap = document.getElementById("bz-offset-wrap");
+const bzUtcOffset = document.getElementById("bz-utc-offset");
 
 const liuyaoForm = document.getElementById("liuyao-form");
 const liuyaoResult = document.getElementById("liuyao-result");
@@ -160,21 +206,37 @@ const lyTimeSourceWrap = document.getElementById("ly-time-source-wrap");
 const lyTimeSource = document.getElementById("ly-time-source");
 const lyManualTimeWrap = document.getElementById("ly-manual-time-wrap");
 const lyManualTime = document.getElementById("ly-manual-time");
+const lyTimeBasisWrap = document.getElementById("ly-time-basis-wrap");
+const lyTimeBasis = document.getElementById("ly-time-basis");
+const lyOffsetWrap = document.getElementById("ly-offset-wrap");
+const lyUtcOffset = document.getElementById("ly-utc-offset");
 const lyInputMode = document.getElementById("ly-input-mode");
 const lyNumbersWrap = document.getElementById("ly-numbers-wrap");
 const lyCoinsWrap = document.getElementById("ly-coins-wrap");
 const lyModeNoteNumbers = document.getElementById("ly-mode-note-numbers");
 const lyModeNoteCoins = document.getElementById("ly-mode-note-coins");
 
+const qimenForm = document.getElementById("qimen-form");
+const qimenResult = document.getElementById("qimen-result");
+const qmTimeSource = document.getElementById("qm-time-source");
+const qmManualTimeWrap = document.getElementById("qm-manual-time-wrap");
+const qmManualTime = document.getElementById("qm-manual-time");
+const qmTimeBasis = document.getElementById("qm-time-basis");
+const qmOffsetWrap = document.getElementById("qm-offset-wrap");
+const qmUtcOffset = document.getElementById("qm-utc-offset");
+
 let currentChartData = null;
 let currentRecord = null;
 let currentLiuYaoText = "";
 let currentLiuYaoJson = null;
+let currentQimenText = "";
 let ichingDataMap = new Map();
 
 setupTabs();
 setupFlowEvents();
 setupLiuyaoForm();
+setupQimenForm();
+setupTimeBasisControls();
 initializeIChingTexts();
 runAccuracySelfCheck();
 loadBaziRecords();
@@ -196,8 +258,17 @@ baziForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const [year, month, day] = date.split("-").map((v) => Number(v));
-  const [hour, minute] = time.split(":").map((v) => Number(v));
+  const resolvedBirth = resolveDateTimeInput({
+    date,
+    time,
+    basis: bzTimeBasis.value,
+    offsetHours: bzUtcOffset.value
+  });
+  if (!resolvedBirth) {
+    alert("时间基准或 UTC 偏移无效，请检查后再排盘。");
+    return;
+  }
+  const { year, month, day, hour, minute, second } = datePartsFromDate(resolvedBirth.beijingDate);
   const record = {
     id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
     name,
@@ -206,8 +277,10 @@ baziForm.addEventListener("submit", (event) => {
     calendar,
     daySect,
     yunSect,
-    birthYmdHm: { year, month, day, hour, minute, second: 0 },
-    birthText: `${date} ${time}`,
+    birthYmdHm: { year, month, day, hour, minute, second },
+    birthText: resolvedBirth.beijingText,
+    originalBirthText: `${date} ${time}`,
+    timeBasisText: resolvedBirth.basisText,
     createdAt: new Date().toISOString()
   };
 
@@ -266,21 +339,28 @@ liuyaoForm.addEventListener("submit", (event) => {
   if (movingMode === "number-with-time") {
     const source = lyTimeSource.value;
     let dateObj = null;
-    if (source === "now") {
-      dateObj = new Date();
-    } else {
-      if (!lyManualTime.value) {
-        alert("请选择手动时间。");
+      if (source === "now") {
+        const resolvedNow = resolveCurrentTimeForCalendar();
+        dateObj = resolvedNow.beijingDate;
+        timeInfo = buildTimeInfo(dateObj, source, resolvedNow);
+      } else {
+        if (!lyManualTime.value) {
+          alert("请选择手动时间。");
+          return;
+        }
+      const resolvedManual = resolveDateTimeInput({
+        dateTime: lyManualTime.value,
+        basis: lyTimeBasis.value,
+        offsetHours: lyUtcOffset.value
+      });
+      if (!resolvedManual) {
+        alert("手动时间或 UTC 偏移无效，请重新选择。");
         return;
       }
-      dateObj = new Date(lyManualTime.value);
-      if (Number.isNaN(dateObj.getTime())) {
-        alert("手动时间无效，请重新选择。");
-        return;
-      }
+      dateObj = resolvedManual.beijingDate;
+      timeInfo = buildTimeInfo(dateObj, source, resolvedManual);
     }
     liuyaoDate = dateObj;
-    timeInfo = buildTimeInfo(dateObj, source);
   }
 
   if (inputMode === "numbers") {
@@ -300,6 +380,7 @@ liuyaoForm.addEventListener("submit", (event) => {
   }
 
   const coinTotals = [];
+  const coinFaceRows = [];
   for (let i = 1; i <= 6; i += 1) {
     const sel = document.getElementById(`ly-coin-${i}`);
     const raw = sel ? sel.value : "";
@@ -308,6 +389,7 @@ liuyaoForm.addEventListener("submit", (event) => {
       return;
     }
     coinTotals.push(Number(raw));
+    coinFaceRows.push(sel?.dataset?.faces || "字字字");
   }
   for (const t of coinTotals) {
     if (![6, 7, 8, 9].includes(t)) {
@@ -320,7 +402,7 @@ liuyaoForm.addEventListener("submit", (event) => {
   renderLiuyaoResult(chart, liuyaoDate, {
     questionType,
     viewMode,
-    inputMeta: { kind: "coins", coinTotals }
+    inputMeta: { kind: "coins", coinTotals, coinFaceRows }
   });
 });
 
@@ -363,6 +445,46 @@ liuyaoResult.addEventListener("click", async (event) => {
   }
 });
 
+qimenForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!ensureLunarReady()) return;
+
+  let resolvedTime = resolveCurrentTimeForCalendar();
+  if (qmTimeSource.value === "manual") {
+    if (!qmManualTime.value) {
+      alert("请选择奇门排盘时间。");
+      return;
+    }
+    resolvedTime = resolveDateTimeInput({
+      dateTime: qmManualTime.value,
+      basis: qmTimeBasis.value,
+      offsetHours: qmUtcOffset.value
+    });
+    if (!resolvedTime) {
+      alert("奇门排盘时间或 UTC 偏移无效，请重新选择。");
+      return;
+    }
+  }
+
+  try {
+    const chart = buildQimenChart(resolvedTime.beijingDate, resolvedTime);
+    renderQimenResult(chart);
+  } catch (error) {
+    console.error(error);
+    alert("奇门排盘失败，请检查时间或刷新页面。");
+  }
+});
+
+qimenResult.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const msg = document.getElementById("copy-qimen-msg");
+  if (target.id !== "copy-qimen-btn") return;
+  if (!currentQimenText) return;
+  const ok = await copyText(currentQimenText);
+  if (msg) msg.textContent = ok ? "已复制奇门盘" : "复制失败";
+});
+
 function ensureLunarReady() {
   if (typeof Solar === "undefined") {
     alert("历法库加载失败，请检查网络后刷新页面。");
@@ -374,6 +496,34 @@ function ensureLunarReady() {
 function setupTabs() {
   tabBazi.addEventListener("click", () => switchTab("bazi"));
   tabLiuyao.addEventListener("click", () => switchTab("liuyao"));
+  tabQimen.addEventListener("click", () => switchTab("qimen"));
+}
+
+function setupQimenForm() {
+  if (!qimenForm) return;
+  qmManualTime.value = toDateTimeLocal(new Date());
+  qmTimeSource.addEventListener("change", () => {
+    qmManualTimeWrap.classList.toggle("hidden", qmTimeSource.value !== "manual");
+  });
+  qmManualTimeWrap.classList.toggle("hidden", qmTimeSource.value !== "manual");
+}
+
+function setupTimeBasisControls() {
+  const defaultOffset = browserUtcOffsetHours();
+  [bzUtcOffset, lyUtcOffset, qmUtcOffset].forEach((input) => {
+    if (input) input.value = String(defaultOffset);
+  });
+  const pairs = [
+    [bzTimeBasis, bzOffsetWrap],
+    [lyTimeBasis, lyOffsetWrap],
+    [qmTimeBasis, qmOffsetWrap]
+  ];
+  pairs.forEach(([select, wrap]) => {
+    if (!select || !wrap) return;
+    const sync = () => wrap.classList.toggle("hidden", select.value !== "offset");
+    select.addEventListener("change", sync);
+    sync();
+  });
 }
 
 function setupLiuyaoForm() {
@@ -390,7 +540,7 @@ function setupLiuyaoForm() {
 
 function populateLiuyaoCoinSelects() {
   for (let i = 1; i <= 6; i += 1) {
-    setCoinFacesForLine(i, ["背", "背", "背"]);
+    setCoinFacesForLine(i, ["字", "字", "字"]);
   }
 }
 
@@ -427,7 +577,7 @@ function setCoinFacesForLine(line, faces) {
   const resultEl = document.getElementById(`ly-coin-result-${line}`);
   const facesEl = document.getElementById(`ly-coin-faces-${line}`);
   if (!hiddenInput || !resultEl || !facesEl) return;
-  const total = faces.reduce((sum, face) => sum + (face === "字" ? 3 : 2), 0);
+  const total = faces.reduce((sum, face) => sum + (face === "背" ? 3 : 2), 0);
   const label = { 6: "老阴·动", 7: "少阳", 8: "少阴", 9: "老阳·动" }[total] || "";
   hiddenInput.value = String(total);
   hiddenInput.dataset.faces = faces.join("");
@@ -438,16 +588,16 @@ function setCoinFacesForLine(line, faces) {
 
 function getCoinFacesForLine(line) {
   const hiddenInput = document.getElementById(`ly-coin-${line}`);
-  const raw = hiddenInput?.dataset?.faces || "背背背";
+  const raw = hiddenInput?.dataset?.faces || "字字字";
   return Array.from(raw).slice(0, 3).map((face) => (face === "字" ? "字" : "背"));
 }
 
 function renderCoinFaces(container, faces, line) {
   container.innerHTML = faces
     .map((face, index) => {
-      const cls = face === "字" ? " is-yang" : face === "背" ? " is-yin" : "";
-      const label = face === "字" ? "字面，阳，3点" : "字背，阴，2点";
-      return `<button class="coin${cls}" type="button" data-coin-line="${line}" data-coin-index="${index}" data-coin-face="${escapeHTML(face)}" aria-label="第${line}爻第${index + 1}枚硬币：${label}"><span class="coin-mark">${escapeHTML(face)}</span><span class="coin-value">${face === "字" ? "3" : "2"}</span></button>`;
+      const cls = face === "背" ? " is-yang" : face === "字" ? " is-yin" : "";
+      const label = face === "字" ? "字面，阴，2点" : "背面，阳，3点";
+      return `<button class="coin${cls}" type="button" data-coin-line="${line}" data-coin-index="${index}" data-coin-face="${escapeHTML(face)}" aria-label="第${line}爻第${index + 1}枚硬币：${label}"><span class="coin-mark">${escapeHTML(face)}</span><span class="coin-value">${face === "背" ? "3" : "2"}</span></button>`;
     })
     .join("");
 }
@@ -465,14 +615,20 @@ function syncLiuyaoTimeFields() {
   lyTimeSourceWrap.classList.toggle("hidden", !needTime);
   const manual = needTime && lyTimeSource.value === "manual";
   lyManualTimeWrap.classList.toggle("hidden", !manual);
+  lyTimeBasisWrap.classList.toggle("hidden", !needTime || lyTimeSource.value !== "manual");
+  lyOffsetWrap.classList.toggle("hidden", !needTime || lyTimeSource.value !== "manual" || lyTimeBasis.value !== "offset");
 }
 
 function switchTab(target) {
   const isBazi = target === "bazi";
+  const isQimen = target === "qimen";
+  const isLiuyao = target === "liuyao";
   tabBazi.classList.toggle("active", isBazi);
-  tabLiuyao.classList.toggle("active", !isBazi);
+  tabQimen.classList.toggle("active", isQimen);
+  tabLiuyao.classList.toggle("active", isLiuyao);
   panelBazi.classList.toggle("active", isBazi);
-  panelLiuyao.classList.toggle("active", !isBazi);
+  panelQimen.classList.toggle("active", isQimen);
+  panelLiuyao.classList.toggle("active", isLiuyao);
 }
 
 function setupFlowEvents() {
@@ -541,6 +697,91 @@ function buildChartData(record) {
   }
 }
 
+function browserUtcOffsetHours() {
+  return Number((-new Date().getTimezoneOffset() / 60).toFixed(2));
+}
+
+function parseDateTimeParts({ date, time, dateTime }) {
+  const raw = dateTime || (date && time ? `${date}T${time}` : "");
+  const match = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+    second: Number(match[6] || 0)
+  };
+}
+
+function resolveDateTimeInput({ date, time, dateTime, basis, offsetHours }) {
+  const parts = parseDateTimeParts({ date, time, dateTime });
+  if (!parts) return null;
+  let instant = null;
+  let basisText = "";
+  if (basis === "beijing") {
+    instant = dateFromOffsetParts(parts, BEIJING_OFFSET_MINUTES);
+    basisText = "按北京时间输入";
+  } else if (basis === "offset") {
+    const offset = Number(offsetHours);
+    if (!Number.isFinite(offset) || offset < -12 || offset > 14) return null;
+    instant = dateFromOffsetParts(parts, Math.round(offset * 60));
+    basisText = `按 UTC${offset >= 0 ? "+" : ""}${offset} 输入`;
+  } else {
+    instant = new Date(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    basisText = `按本机时区输入（UTC${browserUtcOffsetHours() >= 0 ? "+" : ""}${browserUtcOffsetHours()}）`;
+  }
+  if (Number.isNaN(instant.getTime())) return null;
+  const beijingDate = beijingWallDateFromInstant(instant);
+  return {
+    instant,
+    beijingDate,
+    basisText,
+    inputText: `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")} ${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`,
+    beijingText: formatDate(beijingDate)
+  };
+}
+
+function resolveCurrentTimeForCalendar() {
+  const instant = new Date();
+  const beijingDate = beijingWallDateFromInstant(instant);
+  return {
+    instant,
+    beijingDate,
+    basisText: `当前实际时刻（本机 UTC${browserUtcOffsetHours() >= 0 ? "+" : ""}${browserUtcOffsetHours()}，已换算北京时间）`,
+    inputText: formatDate(instant),
+    beijingText: formatDate(beijingDate)
+  };
+}
+
+function dateFromOffsetParts(parts, offsetMinutes) {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - offsetMinutes * 60000);
+}
+
+function beijingWallDateFromInstant(instant) {
+  const shifted = new Date(instant.getTime() + BEIJING_OFFSET_MINUTES * 60000);
+  return new Date(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate(),
+    shifted.getUTCHours(),
+    shifted.getUTCMinutes(),
+    shifted.getUTCSeconds()
+  );
+}
+
+function datePartsFromDate(dateObj) {
+  return {
+    year: dateObj.getFullYear(),
+    month: dateObj.getMonth() + 1,
+    day: dateObj.getDate(),
+    hour: dateObj.getHours(),
+    minute: dateObj.getMinutes(),
+    second: dateObj.getSeconds()
+  };
+}
+
 function renderBaziResult(record, chartData) {
   const { solar, lunar, eightChar, yun } = chartData;
   const birth = normalizeBirth(record);
@@ -593,6 +834,7 @@ function renderBaziResult(record, chartData) {
     <h4>${escapeHTML(record.name)} · ${record.gender}</h4>
     <p class="bazi-summary">出生：${birthText}（${record.calendar}）｜四柱：${safeCall(eightChar, "toString", "-")}</p>
     <div class="meta-lines">
+      <p>时间基准：${escapeHTML(record.timeBasisText || "按北京时间输入")} ｜ 原始输入：${escapeHTML(record.originalBirthText || record.birthText || birthText)}</p>
       <p>节气历：${safeCall(lunar, "toFullString", "-")}</p>
       <p>命宫：${safeCall(eightChar, "getMingGong", "-")} ｜ 身宫：${safeCall(eightChar, "getShenGong", "-")}</p>
       <p>起运：${safeCall(yun, "getStartYear", 0)}年${safeCall(yun, "getStartMonth", 0)}月${safeCall(yun, "getStartDay", 0)}天 ｜ 交运日：${safeCallObjYmd(yun, "getStartSolar")}</p>
@@ -807,7 +1049,7 @@ function loadBaziRecords() {
       return `
         <li class="record-item">
           <p class="record-title">${escapeHTML(record.name)} · ${record.gender}</p>
-          <p>出生：${birthText} ｜ 固定精算口径</p>
+          <p>出生：${birthText} ｜ ${escapeHTML(record.timeBasisText || "按北京时间输入")}</p>
           <p style="margin-top:8px;">
             <button type="button" data-record-id="${record.id}">查看此盘</button>
           </p>
@@ -945,7 +1187,24 @@ function runAccuracySelfCheck() {
     if (!(allOldYang.mainCode === "111111" && allOldYang.changedCode === "000000" && allOldYang.movingLines.length === 6)) {
       failed = true;
     }
+    const allOldYin = calcLiuyaoChartFromCoins([6, 6, 6, 6, 6, 6], { movingMode: "number-only", timeInfo: null });
+    if (!(allOldYin.mainCode === "000000" && allOldYin.changedCode === "111111" && allOldYin.movingLines.length === 6)) {
+      failed = true;
+    }
+    const tunCase = calcLiuyaoChart(5, 3, { movingMode: "number-only", timeInfo: null });
+    const tunInfo = findLiuYaoHexagramInfo(tunCase.upper, tunCase.lower);
+    if (!tunInfo || tunInfo.name !== "水雷屯" || tunInfo.palace !== "坎") {
+      failed = true;
+    }
     if (getHexagramInfo("乾", "兑").shortName !== "履" || getHexagramInfo("艮", "坎").shortName !== "蒙") {
+      failed = true;
+    }
+    const qimenCase = buildQimenChart(new Date(2026, 3, 28, 10, 30, 0));
+    if (!(qimenCase.termName === "谷雨" && qimenCase.dun === "阳" && qimenCase.ju === 2 && qimenCase.yuan === "中元")) {
+      failed = true;
+    }
+    const qimenPublicCase = buildQimenChart(new Date(2026, 3, 1, 17, 18, 0));
+    if (!(qimenPublicCase.termName === "春分" && qimenPublicCase.dun === "阳" && qimenPublicCase.ju === 6 && qimenPublicCase.yuan === "下元")) {
       failed = true;
     }
 
@@ -1327,9 +1586,10 @@ function renderLiuyaoResult(chart, liuyaoDate, options = {}) {
   const movers = chart.movingLines && chart.movingLines.length ? chart.movingLines : chart.movingLine ? [chart.movingLine] : [];
   const movingPillText =
     movers.length === 0 ? "无动爻（静卦）" : movers.length === 1 ? `第${movers[0]}爻` : `第${movers.join("、")}爻（${movers.length} 处）`;
+  const coinInputDesc = formatCoinInputDesc(inputMeta);
   const inputLineHtml =
     inputMeta.kind === "coins"
-      ? `<p>起卦方式：三枚钱币（自下而上六次合计：${escapeHTML(inputMeta.coinTotals.join("、"))}）</p>`
+      ? `<p>起卦方式：三枚钱币（字=2，背=3；${escapeHTML(coinInputDesc)}）</p>`
       : `<p>输入数字：${inputMeta.n1}，${inputMeta.n2}</p>`;
   const pro = buildProfessionalLiuYao(chart, liuyaoDate);
   const yongShenSuggestion = getYongShenSuggestion(questionType, pro);
@@ -1344,15 +1604,15 @@ function renderLiuyaoResult(chart, liuyaoDate, options = {}) {
 
   const movingDesc =
     chart.inputKind === "coins"
-      ? "三枚钱币法（六次合计定六爻与全部动爻）"
+      ? "传统三钱筮法（自初爻往上，三字老阴，三背老阳）"
       : chart.movingMode === "number-with-time" && chart.timeInfo
         ? `两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）`
         : "仅两数字";
   const timeDesc =
     chart.timeInfo
-      ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时`
+      ? `${chart.timeInfo.sourceText}：${chart.timeInfo.inputTime || chart.timeInfo.displayTime}；${chart.timeInfo.basisText || ""}；排盘北京时间：${chart.timeInfo.beijingTime || chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时`
       : "-";
-  const paramDesc = chart.inputKind === "coins" ? `六次合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`;
+  const paramDesc = chart.inputKind === "coins" ? `动爻由 6/9 本身确定；六次数值合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`;
 
   const proOpen = viewMode === "pro" ? "open" : "";
 
@@ -1497,6 +1757,8 @@ function renderLiuyaoResult(chart, liuyaoDate, options = {}) {
       inputMeta.kind === "coins"
         ? {
             kind: "coins",
+            rule: "字=2（阴），背=3（阳）；三字老阴，三背老阳；自初爻往上记录",
+            coinFaceRows: inputMeta.coinFaceRows || [],
             coinTotals: inputMeta.coinTotals,
             questionType,
             questionLabel: questionProfile.label,
@@ -1538,6 +1800,17 @@ function trigramMetaByName(name) {
   return TRIGRAM_META.find((item) => item.name === name) || { name, symbol: "-", element: "-", binary: "---" };
 }
 
+function formatCoinInputDesc(inputMeta) {
+  if (!inputMeta || inputMeta.kind !== "coins" || !Array.isArray(inputMeta.coinTotals)) return "";
+  const rows = Array.isArray(inputMeta.coinFaceRows) ? inputMeta.coinFaceRows : [];
+  return inputMeta.coinTotals
+    .map((total, index) => {
+      const faces = rows[index] || "字字字";
+      return `${COIN_LINE_NAMES[index] || `${index + 1}爻`}${faces}=${total}`;
+    })
+    .join("、");
+}
+
 function buildLiuyaoText(payload) {
   const {
     inputMeta,
@@ -1561,13 +1834,14 @@ function buildLiuyaoText(payload) {
   } = payload;
   const movers =
     chart.movingLines && chart.movingLines.length ? chart.movingLines : chart.movingLine ? [chart.movingLine] : [];
+  const coinInputDesc = formatCoinInputDesc(inputMeta);
   const inputHead =
     inputMeta.kind === "coins"
-      ? `起卦方式：三枚钱币，自下而上六次合计：${inputMeta.coinTotals.join("、")}`
+      ? `起卦方式：三枚钱币，字=2，背=3；${coinInputDesc}`
       : `输入数字：${inputMeta.n1}，${inputMeta.n2}`;
   const movingModeLine =
     chart.inputKind === "coins"
-      ? "起卦规则：三枚钱币法（六次合计定爻象与全部动爻）"
+      ? "起卦规则：传统三钱筮法（自初爻往上，三字老阴，三背老阳）"
       : chart.movingMode === "number-with-time" && chart.timeInfo
         ? `起卦规则：两数字+时辰（${chart.timeInfo.shichenName}时，时辰数${chart.timeInfo.shichenNumber}）`
         : `起卦规则：仅两数字`;
@@ -1592,8 +1866,8 @@ function buildLiuyaoText(payload) {
     "六爻排盘结果",
     inputHead,
     movingModeLine,
-    `起卦参数：${chart.inputKind === "coins" ? `六次合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`}`,
-    `取时：${chart.timeInfo ? `${chart.timeInfo.sourceText}：${chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时` : "-"}`,
+    `起卦参数：${chart.inputKind === "coins" ? `动爻由 6/9 本身确定；六次数值合计：${chart.movingSeed}` : `动爻计算数：${chart.movingSeed}`}`,
+    `取时：${chart.timeInfo ? `${chart.timeInfo.sourceText}：${chart.timeInfo.inputTime || chart.timeInfo.displayTime}；${chart.timeInfo.basisText || ""}；排盘北京时间：${chart.timeInfo.beijingTime || chart.timeInfo.displayTime}，推算时辰：${chart.timeInfo.shichenName}时` : "-"}`,
     `本卦：${chart.upper}上${chart.lower}下`,
     `周易本卦：${benInfo.fullName}（${benInfo.tip}）`,
     `本卦卦辞：${benInfo.scripture || "-"}`,
@@ -1812,8 +2086,8 @@ function getHexagramInfo(upperName, lowerName) {
 }
 
 function buildProfessionalLiuYao(chart, dateObj) {
-  const mainInfo = LIU_YAO_HEXAGRAM_MAP[chart.mainCode];
-  const changedInfo = LIU_YAO_HEXAGRAM_MAP[chart.changedCode];
+  const mainInfo = findLiuYaoHexagramInfo(chart.upper, chart.lower);
+  const changedInfo = findLiuYaoHexagramInfo(chart.changedUpper, chart.changedLower);
   if (!mainInfo || !changedInfo) {
     return { monthBranch: "-", dayGanzhi: "-", dayXunKong: "-", lines: [] };
   }
@@ -1821,8 +2095,7 @@ function buildProfessionalLiuYao(chart, dateObj) {
   const calendar = getLiuyaoCalendarInfo(dateObj);
   const mainPillars = buildHexagramPillars(mainInfo);
   const changedPillars = buildHexagramPillars(changedInfo);
-  const hiddenBaseCode = PALACE_BASE_CODE[mainInfo.palace];
-  const hiddenInfo = hiddenBaseCode ? LIU_YAO_HEXAGRAM_MAP[hiddenBaseCode] : null;
+  const hiddenInfo = findLiuYaoHexagramInfo(mainInfo.palace, mainInfo.palace);
   const hiddenPillars = hiddenInfo ? buildHexagramPillars(hiddenInfo) : [];
 
   const dayStem = calendar.dayGanzhi.charAt(0);
@@ -1859,6 +2132,273 @@ function buildProfessionalLiuYao(chart, dateObj) {
     dayXunKong: calendar.dayXunKong,
     lines
   };
+}
+
+function findLiuYaoHexagramInfo(upperName, lowerName) {
+  return Object.values(LIU_YAO_HEXAGRAM_MAP).find((info) => info.outer === upperName && info.inner === lowerName) || null;
+}
+
+function buildQimenChart(dateObj, resolved) {
+  const solar = Solar.fromYmdHms(
+    dateObj.getFullYear(),
+    dateObj.getMonth() + 1,
+    dateObj.getDate(),
+    dateObj.getHours(),
+    dateObj.getMinutes(),
+    dateObj.getSeconds()
+  );
+  const lunar = solar.getLunar();
+  const pillars = {
+    year: safeCall(lunar, "getYearInGanZhiExact", safeCall(lunar, "getYearInGanZhi", "-")),
+    month: safeCall(lunar, "getMonthInGanZhiExact", safeCall(lunar, "getMonthInGanZhi", "-")),
+    day: safeCall(lunar, "getDayInGanZhiExact2", safeCall(lunar, "getDayInGanZhiExact", safeCall(lunar, "getDayInGanZhi", "-"))),
+    hour: safeCall(lunar, "getTimeInGanZhi", "-")
+  };
+  const prevTermObj = safeCall(lunar, "getPrevJieQi", null);
+  const nextTermObj = safeCall(lunar, "getNextJieQi", null);
+  const termName = prevTermObj && typeof prevTermObj.getName === "function" ? prevTermObj.getName() : safeCall(lunar, "getPrevJie", "-");
+  const dun = QIMEN_JU_TABLE.阳[termName] ? "阳" : "阴";
+  const yuanInfo = getQimenYuan(pillars.day);
+  const juList = QIMEN_JU_TABLE[dun][termName] || [1, 1, 1];
+  const ju = juList[yuanInfo.index] || juList[0];
+  const order = rotateArray(dun === "阳" ? QIMEN_YANG_ORDER : QIMEN_YIN_ORDER, ju);
+  const earthPlate = {};
+  order.forEach((palace, index) => {
+    earthPlate[palace] = QIMEN_INSTRUMENTS[index];
+  });
+
+  const hourIndex = ganzhiIndex(pillars.hour);
+  const xunIndex = Math.max(0, Math.floor(hourIndex / 10));
+  const xun = QIMEN_XUN[xunIndex] || QIMEN_XUN[0];
+  const xunPalaceRaw = findPalaceByValue(earthPlate, xun.hidden) || ju;
+  const xunPalace = qimenHostPalace(xunPalaceRaw);
+  const hourStem = pillars.hour.charAt(0);
+  const hourStemForPlate = hourStem === "甲" ? xun.hidden : hourStem;
+  const hourStemPalaceRaw = findPalaceByValue(earthPlate, hourStemForPlate) || xunPalace;
+  const hourStemPalace = qimenHostPalace(hourStemPalaceRaw);
+
+  const tianPlate = rotatePlateByPalace(earthPlate, qimenHostPalace(xunPalaceRaw), qimenHostPalace(hourStemPalaceRaw), order);
+  const valueStar = QIMEN_STARS_BY_PALACE[xunPalace];
+  const valueDoor = QIMEN_DOORS_BY_PALACE[xunPalace] || "死门";
+  const stars = placeQimenRing(valueStar, hourStemPalace, starRingSequence());
+  const hourBranch = pillars.hour.charAt(1);
+  const xunBranch = xun.start.charAt(1);
+  const branchSteps = (BRANCHES.indexOf(hourBranch) - BRANCHES.indexOf(xunBranch) + 12) % 12;
+  const doorTarget = moveOnRing(xunPalace, branchSteps, dun === "阳" ? 1 : -1);
+  const doors = placeQimenRing(valueDoor, doorTarget, QIMEN_DOOR_ORDER);
+  const gods = placeQimenRing("值符", hourStemPalace, dun === "阳" ? QIMEN_GODS_ORDER : QIMEN_GODS_ORDER.slice().reverse());
+
+  const palaces = {};
+  for (let i = 1; i <= 9; i += 1) {
+    palaces[i] = {
+      palace: i,
+      name: qimenPalaceName(i),
+      earth: earthPlate[i] || "",
+      heaven: tianPlate[i] || "",
+      star: stars[i] || (i === 5 ? "天禽" : ""),
+      door: doors[i] || "",
+      god: gods[i] || ""
+    };
+  }
+  if (!palaces[5].star) palaces[5].star = "天禽";
+
+  return {
+    dateObj,
+    solarText: formatDate(dateObj),
+    inputTimeText: resolved?.inputText || formatDate(dateObj),
+    timeBasisText: resolved?.basisText || "按北京时间输入",
+    lunarText: safeCall(lunar, "toFullString", "-"),
+    pillars,
+    termName,
+    prevTermTime: qimenTermText(prevTermObj),
+    nextTermName: nextTermObj && typeof nextTermObj.getName === "function" ? nextTermObj.getName() : "-",
+    nextTermTime: qimenTermText(nextTermObj),
+    dun,
+    ju,
+    yuan: yuanInfo.name,
+    fuTou: yuanInfo.fuTou,
+    xun,
+    timeXunKong: safeCall(lunar, "getTimeXunKong", "-"),
+    hourStemForPlate,
+    valueStar,
+    valueDoor,
+    valueFuPalace: hourStemPalace,
+    valueShiPalace: doorTarget,
+    palaces
+  };
+}
+
+function renderQimenResult(chart) {
+  qimenResult.classList.remove("hidden");
+  currentQimenText = buildQimenText(chart);
+  const gridHtml = QIMEN_PALACE_GRID.map((num) => {
+    const p = chart.palaces[num];
+    return `
+      <section class="qimen-palace qimen-palace-${num}">
+        <div class="qimen-palace-head"><span>${p.name}</span><strong>${num}宫</strong></div>
+        <div class="qimen-main-row"><span>${p.god || "-"}</span><span>${p.star || "-"}</span><span>${p.door || "-"}</span></div>
+        <div class="qimen-stem-row"><span>天盘 ${p.heaven || "-"}</span><span>地盘 ${p.earth || "-"}</span></div>
+      </section>
+    `;
+  }).join("");
+
+  qimenResult.innerHTML = `
+    <h4>奇门遁甲排盘</h4>
+    <div class="meta-lines">
+      <p>输入时间：${escapeHTML(chart.inputTimeText)} ｜ ${escapeHTML(chart.timeBasisText)}</p>
+      <p>排盘北京时间：${chart.solarText}</p>
+      <p>四柱：${chart.pillars.year} 年｜${chart.pillars.month} 月｜${chart.pillars.day} 日｜${chart.pillars.hour} 时</p>
+      <p>节气：${chart.termName}（${chart.prevTermTime}）｜下一节气：${chart.nextTermName}（${chart.nextTermTime}）</p>
+      <p>起局：时家转盘 · 拆补法｜${chart.dun}遁 ${chart.ju} 局｜${chart.yuan}（符头 ${chart.fuTou}）</p>
+      <p>旬首：${chart.xun.start}${chart.xun.hidden}｜旬空：${chart.timeXunKong}｜时干入盘：${chart.hourStemForPlate}｜值符：${chart.valueStar}落${chart.valueFuPalace}宫｜值使：${chart.valueDoor}落${chart.valueShiPalace}宫</p>
+      <p>${QIMEN_METHOD_NOTE}</p>
+    </div>
+    <div class="qimen-board">${gridHtml}</div>
+    <details open>
+      <summary>盘面字段</summary>
+      <table class="line-table qimen-table">
+        <thead><tr><th>宫位</th><th>方位/卦</th><th>八神</th><th>九星</th><th>八门</th><th>天盘干</th><th>地盘干</th></tr></thead>
+        <tbody>
+          ${QIMEN_PALACE_GRID.map((num) => {
+            const p = chart.palaces[num];
+            return `<tr><td>${num}宫</td><td>${p.name}</td><td>${p.god || "-"}</td><td>${p.star || "-"}</td><td>${p.door || "-"}</td><td>${p.heaven || "-"}</td><td>${p.earth || "-"}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </details>
+    <div class="copy-actions">
+      <button type="button" id="copy-qimen-btn">复制奇门盘</button>
+      <span id="copy-qimen-msg"></span>
+    </div>
+  `;
+}
+
+function buildQimenText(chart) {
+  const rows = QIMEN_PALACE_GRID.map((num) => {
+    const p = chart.palaces[num];
+    return `${num}宫 ${p.name}：八神${p.god || "-"}，九星${p.star || "-"}，八门${p.door || "-"}，天盘${p.heaven || "-"}，地盘${p.earth || "-"}`;
+  });
+  return [
+    "奇门遁甲排盘",
+    `输入时间：${chart.inputTimeText}｜${chart.timeBasisText}`,
+    `排盘北京时间：${chart.solarText}`,
+    `四柱：${chart.pillars.year} 年｜${chart.pillars.month} 月｜${chart.pillars.day} 日｜${chart.pillars.hour} 时`,
+    `节气：${chart.termName}（${chart.prevTermTime}）｜下一节气：${chart.nextTermName}（${chart.nextTermTime}）`,
+    `起局：时家转盘 · 拆补法｜${chart.dun}遁${chart.ju}局｜${chart.yuan}（符头 ${chart.fuTou}）`,
+    `旬首：${chart.xun.start}${chart.xun.hidden}｜旬空：${chart.timeXunKong}｜时干入盘：${chart.hourStemForPlate}`,
+    `值符：${chart.valueStar}落${chart.valueFuPalace}宫｜值使：${chart.valueDoor}落${chart.valueShiPalace}宫`,
+    QIMEN_METHOD_NOTE,
+    "",
+    "九宫盘面",
+    ...rows
+  ].join("\n");
+}
+
+function getQimenYuan(dayGanzhi) {
+  const dayIndex = ganzhiIndex(dayGanzhi);
+  let fuTou = dayGanzhi;
+  for (let i = 0; i < 5; i += 1) {
+    const gz = ganzhiFromIndex(dayIndex - i);
+    const stem = gz.charAt(0);
+    if (stem === "甲" || stem === "己") {
+      fuTou = gz;
+      break;
+    }
+  }
+  const branch = fuTou.charAt(1);
+  if (["子", "午", "卯", "酉"].includes(branch)) return { name: "上元", index: 0, fuTou };
+  if (["寅", "申", "巳", "亥"].includes(branch)) return { name: "中元", index: 1, fuTou };
+  return { name: "下元", index: 2, fuTou };
+}
+
+function ganzhiIndex(gz) {
+  if (!gz || gz.length < 2) return 0;
+  const stem = gz.charAt(0);
+  const branch = gz.charAt(1);
+  for (let i = 0; i < 60; i += 1) {
+    if (STEMS[i % 10] === stem && BRANCHES[i % 12] === branch) return i;
+  }
+  return 0;
+}
+
+function ganzhiFromIndex(index) {
+  const normalized = ((index % 60) + 60) % 60;
+  return `${STEMS[normalized % 10]}${BRANCHES[normalized % 12]}`;
+}
+
+function rotateArray(arr, startValue) {
+  const index = arr.indexOf(startValue);
+  if (index < 0) return arr.slice();
+  return arr.slice(index).concat(arr.slice(0, index));
+}
+
+function findPalaceByValue(plate, value) {
+  const found = Object.entries(plate).find(([, v]) => v === value);
+  return found ? Number(found[0]) : null;
+}
+
+function qimenHostPalace(palace) {
+  return palace === 5 ? 2 : palace;
+}
+
+function rotatePlateByPalace(plate, fromPalace, toPalace, order) {
+  const result = {};
+  const fromIndex = order.indexOf(fromPalace);
+  const toIndex = order.indexOf(toPalace);
+  const offset = fromIndex >= 0 && toIndex >= 0 ? toIndex - fromIndex : 0;
+  order.forEach((palace, index) => {
+    const target = order[(index + offset + order.length) % order.length];
+    result[target] = plate[palace];
+  });
+  return result;
+}
+
+function starRingSequence() {
+  return QIMEN_RING.map((palace) => QIMEN_STARS_BY_PALACE[palace]);
+}
+
+function placeQimenRing(item, targetPalace, sequence) {
+  const result = {};
+  const startIndex = sequence.indexOf(item);
+  const targetIndex = QIMEN_RING.indexOf(qimenHostPalace(targetPalace));
+  if (startIndex < 0 || targetIndex < 0) return result;
+  for (let i = 0; i < QIMEN_RING.length; i += 1) {
+    const palace = QIMEN_RING[(targetIndex + i) % QIMEN_RING.length];
+    result[palace] = sequence[(startIndex + i) % sequence.length];
+  }
+  return result;
+}
+
+function moveOnRing(startPalace, steps, direction) {
+  const startIndex = QIMEN_RING.indexOf(qimenHostPalace(startPalace));
+  if (startIndex < 0) return qimenHostPalace(startPalace);
+  const next = (startIndex + steps * direction + QIMEN_RING.length * 4) % QIMEN_RING.length;
+  return QIMEN_RING[next];
+}
+
+function qimenPalaceName(num) {
+  const map = {
+    1: "坎一（北）",
+    2: "坤二（西南）",
+    3: "震三（东）",
+    4: "巽四（东南）",
+    5: "中五",
+    6: "乾六（西北）",
+    7: "兑七（西）",
+    8: "艮八（东北）",
+    9: "离九（南）"
+  };
+  return map[num] || `${num}宫`;
+}
+
+function qimenTermText(termObj) {
+  try {
+    if (!termObj || typeof termObj.getSolar !== "function") return "-";
+    const solar = termObj.getSolar();
+    return solar && typeof solar.toYmdHms === "function" ? solar.toYmdHms() : "-";
+  } catch (_) {
+    return "-";
+  }
 }
 
 function getLiuyaoCalendarInfo(dateObj) {
@@ -1975,7 +2515,7 @@ function getShichenFromHour(hour) {
   };
 }
 
-function buildTimeInfo(dateObj, source) {
+function buildTimeInfo(dateObj, source, resolved) {
   const hour = dateObj.getHours();
   const minute = dateObj.getMinutes();
   const second = dateObj.getSeconds();
@@ -1983,6 +2523,9 @@ function buildTimeInfo(dateObj, source) {
   return {
     source,
     sourceText: source === "now" ? "当前时间" : "手动时间",
+    basisText: resolved?.basisText || "按北京时间输入",
+    inputTime: resolved?.inputText || "",
+    beijingTime: resolved?.beijingText || formatDate(dateObj),
     displayTime: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(dateObj.getDate()).padStart(2, "0")} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`,
     hour,
     minute,

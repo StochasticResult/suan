@@ -60,7 +60,7 @@ body {
 
 .tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -519,6 +519,64 @@ button:hover {
   background: #f8faff;
 }
 
+.qimen-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  min-width: 520px;
+}
+
+.qimen-palace {
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #f8fafd);
+  padding: 10px;
+  min-height: 128px;
+  display: grid;
+  gap: 9px;
+}
+
+.qimen-palace-head,
+.qimen-main-row,
+.qimen-stem-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.qimen-palace-head {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.qimen-palace-head strong {
+  color: var(--text);
+}
+
+.qimen-main-row span {
+  border: 1px solid #e0e3e7;
+  border-radius: 999px;
+  background: #fff;
+  padding: 4px 7px;
+  color: #174ea6;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.qimen-stem-row span {
+  color: #3c4043;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.qimen-palace-5 {
+  background: #fffdf7;
+  border-color: #efd99b;
+}
+
 .copy-actions {
   margin-top: 10px;
   display: flex;
@@ -543,7 +601,8 @@ button:hover {
   font-weight: 600;
 }
 
-#copy-liuyao-msg {
+#copy-liuyao-msg,
+#copy-qimen-msg {
   color: var(--success);
   font-size: 13px;
   font-weight: 700;
@@ -743,6 +802,33 @@ details > summary {
     border-radius: 10px;
   }
 
+  .qimen-board {
+    grid-template-columns: repeat(3, minmax(126px, 1fr));
+    gap: 8px;
+    min-width: 410px;
+  }
+
+  .qimen-palace {
+    min-height: 116px;
+    padding: 8px;
+  }
+
+  .qimen-main-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .qimen-main-row span {
+    text-align: center;
+  }
+
+  .qimen-stem-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .line-table {
     min-width: 560px;
   }
@@ -820,6 +906,10 @@ details > summary {
   .copy-actions,
   .flow-selectors {
     grid-template-columns: 1fr;
+  }
+
+  .qimen-board {
+    min-width: 390px;
   }
 }
 
